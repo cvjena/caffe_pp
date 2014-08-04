@@ -142,6 +142,69 @@ static mxArray* do_backward(const mxArray* const top_diff) {
   return mx_out;
 }
 
+static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* const layername, const mxArray* const channel_ids)
+{
+  char* layer_name = mxArrayToString(layername);
+  const double* const selected_channels =
+    reinterpret_cast<const double* const>(mxGetPr(channel_ids));
+  // convert float array to int array
+  vector<int> selected_channels_i;
+  for (unsigned int i=0; i<mxGetDimensions(channel_ids)[0];i++)
+      selected_channels_i.push_back(((int)(*(selected_channels + i)+0.5)));
+  
+  // Copy the input to the bottom blob
+  vector<Blob<float>*>& input_blobs = net_->input_blobs();
+  CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(bottom)[0]),
+      input_blobs.size());
+  for (unsigned int i = 0; i < input_blobs.size(); ++i) {
+    const mxArray* const elem = mxGetCell(bottom, i);
+    const float* const data_ptr =
+        reinterpret_cast<const float* const>(mxGetPr(elem));
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      caffe_copy(input_blobs[i]->count(), data_ptr,
+          input_blobs[i]->mutable_cpu_data());
+      break;
+    case Caffe::GPU:
+      caffe_copy(input_blobs[i]->count(), data_ptr,
+          input_blobs[i]->mutable_gpu_data());
+      break;
+    default:
+      LOG(FATAL) << "Unknown Caffe mode.";
+    }  // switch (Caffe::mode())
+  }
+  
+  LOG(INFO) << "Starting calculation.";
+  // Start gradient calculation
+  const vector<Blob<float>*>& output_blobs = net_->CalcGradientsPrefilled(layer_name, selected_channels_i);
+  
+  
+  mxArray* mx_out = mxCreateCellMatrix(output_blobs.size(), 1);
+  for (unsigned int i = 0; i < output_blobs.size(); ++i) {
+    // internally data is stored as (width, height, channels, num)
+    // where width is the fastest dimension
+    mwSize dims[4] = {output_blobs[i]->width(), output_blobs[i]->height(),
+      output_blobs[i]->channels(), output_blobs[i]->num()};
+    mxArray* mx_blob =  mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+    mxSetCell(mx_out, i, mx_blob);
+    float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_blob));
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      caffe_copy(output_blobs[i]->count(), output_blobs[i]->mutable_cpu_diff(),
+          data_ptr);
+      break;
+    case Caffe::GPU:
+      caffe_copy(output_blobs[i]->count(), output_blobs[i]->mutable_gpu_diff(),
+          data_ptr);
+      break;
+    default:
+      LOG(FATAL) << "Unknown Caffe mode.";
+    }  // switch (Caffe::mode())
+  }
+
+  return mx_out;
+}
+
 static mxArray* do_get_weights() {
   const vector<shared_ptr<Layer<float> > >& layers = net_->layers();
   const vector<string>& layer_names = net_->layer_names();
@@ -303,6 +366,16 @@ static void backward(MEX_ARGS) {
   plhs[0] = do_backward(prhs[0]);
 }
 
+static void get_gradients(MEX_ARGS) {
+  if (nrhs != 3) {
+    LOG(ERROR) << "Only given " << nrhs << " arguments";
+    mexErrMsgTxt("Wrong number of arguments");
+  }
+
+  plhs[0] = do_get_gradients(prhs[0], prhs[1], prhs[2]);
+}
+
+
 static void is_initialized(MEX_ARGS) {
   if (!net_) {
     plhs[0] = mxCreateDoubleScalar(0);
@@ -323,6 +396,7 @@ static handler_registry handlers[] = {
   // Public API functions
   { "forward",            forward         },
   { "backward",           backward        },
+  { "get_gradients",      get_gradients   },
   { "init",               init            },
   { "is_initialized",     is_initialized  },
   { "set_mode_cpu",       set_mode_cpu    },

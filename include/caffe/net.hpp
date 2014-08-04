@@ -30,6 +30,18 @@ class Net {
   // input blobs using input_blobs().
   const vector<Blob<Dtype>*>& ForwardPrefilled(Dtype* loss = NULL);
 
+  // Calculate the gradient map for the given layer and the given 
+  // channels. 
+  // This function calculates the sum of gradients of all output elements of
+  // channel channel_ids[i] in layer layername w.r.t. the input image 
+  // and stores the results in the diff of the returned blobs 
+  // The first blob contains the gradient of input 0 wrt the channel channel_ids[0]
+  // The second blob contains the gradient of input 1 wrt the channel channel_ids[1]
+  // and so on. You probably want to have the same input image duplicated such that it
+  // matches the size of channel_ids. However, at maximum input_num (as defined in prototxt)
+  // many gradients are calculated.
+  const vector<Blob<Dtype>*>& CalcGradientsPrefilled(string layername, vector<int>& channel_ids);
+  
   // The From and To variants of Forward and Backward operate on the
   // (topological) ordering by which the net is specified. For general DAG
   // networks, note that (1) computing from one layer to another might entail
