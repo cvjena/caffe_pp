@@ -1,0 +1,38 @@
+Make sure you have 
+lmdb from http://symas.com/mdb/
+blas from intel mkl or other
+gflags from https://code.google.com/p/gflags/source/checkout 
+--> Make sure to enable shared library in gflags cmake file
+
+1. git clone git@dbv.inf-cv.uni-jena.de:deep-learning-tools/caffe.git
+2. cd caffe 
+3. cp Makefile.config.example Makefile.config
+4. Edit Makefile:
+
+CUSTOM_CXX := /usr/local/gcc-4.7.3/bin/g++
+CUDA_DIR := /usr/local/cuda
+CUDA_ARCH := -gencode arch=compute_20,code=sm_20 \
+                -gencode arch=compute_20,code=sm_21 \
+                -gencode arch=compute_30,code=sm_30 \
+                -gencode arch=compute_35,code=sm_35
+BLAS := mkl
+BLAS_INCLUDE := /opt/intel/composer_xe_2013_sp1.0.080/mkl/include
+BLAS_LIB := /opt/intel/composer_xe_2013_sp1.0.080/mkl/lib/intel64
+
+MATLAB_DIR := /home/matlab/8.3/academic
+PYTHON_INCLUDE := /usr/local/include/python2.7 \
+                /usr/local/lib/python2.7/dist-packages/numpy/core/include
+# We need to be able to find libpythonX.X.so or .dylib.
+PYTHON_LIB := /usr/local/lib
+INCLUDE_DIRS := $(PYTHON_INCLUDE) /usr/local/include /usr/local/leveldb/leveldb-1.15.0/include /home/simon/Research/lib/gflags/include /home/simon/Research/lib/lmdb/libraries/liblmdb
+LIBRARY_DIRS := $(PYTHON_LIB) /usr/local/lib /usr/lib /usr/local/leveldb/leveldb-1.15.0 /home/simon/Research/lib/gflags/lib /home/simon/Research/lib/lmdb/libraries/liblmdb
+BUILD_DIR := build
+DISTRIBUTE_DIR := distribute
+TEST_GPUID := 0
+
+
+5. make
+6. To run, add required stuff to LD_LIBRARY_PATH, such as
+
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-6.0/lib64:/home/simon/Research/lib/gflags/lib:/usr/local/leveldb/leveldb-1.15.0:/home/simon/Research/lib/lmdb/libraries/liblmdb:/opt/intel/composer_xe_2013_sp1.0.080/mkl/lib/intel64:/usr/lib64
+
