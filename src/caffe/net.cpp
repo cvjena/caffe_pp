@@ -501,7 +501,7 @@ string Net<Dtype>::Forward(const string& input_blob_protos, Dtype* loss) {
 
 template <typename Dtype>
 const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_ids, vector<Blob<Dtype>* >& gradients) {
-  LOG(INFO) << "In CalcGradientsPrefilled(...)";
+//   LOG(INFO) << "In CalcGradientsPrefilled(...)";
   // Calculate the id of the target layer
   vector<string>::const_iterator layer_iter=std::find(layer_names().begin(), layer_names().end(), layername);
   int layer_id;
@@ -530,13 +530,13 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
     top_diff = new Dtype[top_vecs_[layer_id][0]->count()];
   }
   
-  LOG(INFO) << "Layer " << layername << " has shape w=" << top_vecs_[layer_id][0]->width() << " and h=" << top_vecs_[layer_id][0]->height();
+//   LOG(INFO) << "Layer " << layername << " has shape w=" << top_vecs_[layer_id][0]->width() << " and h=" << top_vecs_[layer_id][0]->height();
   // for every batch of channels
   for (int batch_id=0; batch_id<slices.size(); batch_id++) {
     // Initialized the diffs
     // For every blob in the layer layer_id
     for (int i = 0; i < top_vecs_[layer_id].size(); i++) {
-      LOG(INFO)<<"Initializing diff of blob " << i;
+//       LOG(INFO)<<"Initializing diff of blob " << i;
       // Get the shape of this blob
       int duplicate_count = top_vecs_[layer_id][i]->num();
       int channel_count = top_vecs_[layer_id][i]->channels();
@@ -579,7 +579,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
 	}
       }
       CHECK_EQ(data_ptr,top_diff + top_vecs_[layer_id][i]->count());
-      LOG(INFO) << "Done setting diff for batch " << batch_id;
+//       LOG(INFO) << "Done setting diff for batch " << batch_id;
 //   	// Check if everything went fine
 //   	// Visual check:
 //       data_ptr = top_diff;
@@ -614,7 +614,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
 // 	  }
 // 	}
 //       }
-      LOG(INFO) << "Equality check passed. ";
+//       LOG(INFO) << "Equality check passed. ";
       // Copy data back, if necessary
       if (Caffe::mode() == Caffe::GPU) {
 	caffe_copy(top_vecs_[layer_id][i]->count(), 
@@ -622,7 +622,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
 		  top_vecs_[layer_id][i]->mutable_gpu_diff() );
       }
     } // end for every blob
-    LOG(INFO) << "Backpropagation...";
+//     LOG(INFO) << "Backpropagation...";
     // Backward run
     // for every layer 
     for (int i = layer_id; i >= 0; --i) {
@@ -659,7 +659,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
     // Copy data to output 
     gradients.push_back(new Blob<Dtype>());
     gradients[gradients.size()-1]->CopyFrom((*bottom_vecs_[0][0]),true,true);
-    LOG(INFO) << "Copied batch blob to temporary storage ("<<batch_id<<"), it now has "<<gradients.size() << " blobs total";
+//     LOG(INFO) << "Copied batch blob to temporary storage ("<<batch_id<<"), it now has "<<gradients.size() << " blobs total";
   } // end for every batch
   // delete the temporary storage
   if (Caffe::mode() == Caffe::GPU) {
