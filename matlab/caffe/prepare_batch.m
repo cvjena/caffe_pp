@@ -18,7 +18,7 @@ center = floor(indices(2) / 2)+1;
 num_images = length(image_files);
 images = zeros(CROPPED_DIM,CROPPED_DIM,3,batch_size,'single');
 
-parfor i=1:num_images
+for i=1:num_images
     % read file
     fprintf('%c Preparing %s\n',13,image_files{i});
     try

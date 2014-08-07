@@ -40,7 +40,11 @@ class Net {
   // and so on. You probably want to have the same input image duplicated such that it
   // matches the size of channel_ids. However, at maximum input_num (as defined in prototxt)
   // many gradients are calculated.
-  const vector<Blob<Dtype>*>& CalcGradientsPrefilled(string layername, vector<int>& channel_ids);
+  const int CalcGradientsPrefilled(string layername, vector<int>& channel_ids, vector<Blob<Dtype>* >& gradients);
+  
+  // Calculates the forward pass until the layer with the specified name and returns the 
+  // activations.
+  const vector<Blob<Dtype>*>& GetFeaturesPrefilled(string layername);
   
   // The From and To variants of Forward and Backward operate on the
   // (topological) ordering by which the net is specified. For general DAG

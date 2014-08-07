@@ -500,7 +500,177 @@ string Net<Dtype>::Forward(const string& input_blob_protos, Dtype* loss) {
 
 
 template <typename Dtype>
-const vector<Blob<Dtype>*>& Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_ids) {
+const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_ids, vector<Blob<Dtype>* >& gradients) {
+  LOG(INFO) << "In CalcGradientsPrefilled(...)";
+  // Calculate the id of the target layer
+  vector<string>::const_iterator layer_iter=std::find(layer_names().begin(), layer_names().end(), layername);
+  int layer_id;
+  if (layer_iter!=layer_names().end())
+    layer_id=layer_iter-layer_names().begin();
+  else
+  {
+      LOG(FATAL) << "    Layer " << layername << " does not exist." << std::endl;
+      return -1;
+  }
+  // Forward Run
+  for (int i = 0; i <= layer_id; ++i) {
+    layers_[i]->Forward(bottom_vecs_[i], &top_vecs_[i]);
+    if (debug_info_) { ForwardDebugInfo(i); }
+  }
+  
+  // Calculate the start and end indices for every slice
+  vector<int> slices;
+  for (int i=0; i<channel_ids.size(); i=i+top_vecs_[0][0]->num()) {
+    slices.push_back(i);
+  }
+  
+  // Allocate array for temporary diff data
+  Dtype* top_diff = NULL;
+  if (Caffe::mode() == Caffe::GPU) {
+    top_diff = new Dtype[top_vecs_[layer_id][0]->count()];
+  }
+  
+  LOG(INFO) << "Layer " << layername << " has shape w=" << top_vecs_[layer_id][0]->width() << " and h=" << top_vecs_[layer_id][0]->height();
+  // for every batch of channels
+  for (int batch_id=0; batch_id<slices.size(); batch_id++) {
+    // Initialized the diffs
+    // For every blob in the layer layer_id
+    for (int i = 0; i < top_vecs_[layer_id].size(); i++) {
+      LOG(INFO)<<"Initializing diff of blob " << i;
+      // Get the shape of this blob
+      int duplicate_count = top_vecs_[layer_id][i]->num();
+      int channel_count = top_vecs_[layer_id][i]->channels();
+      int blob_width = top_vecs_[layer_id][i]->width();
+      int blob_height = top_vecs_[layer_id][i]->height();
+      
+      // First get the diff data, if diff is on GPU, copy it for better performance
+      switch (Caffe::mode()) {
+      case Caffe::CPU:
+	top_diff = top_vecs_[layer_id][i]->mutable_cpu_diff();
+	break;
+      case Caffe::GPU:
+	caffe_copy(top_vecs_[layer_id][i]->count(), 
+	    top_vecs_[layer_id][i]->mutable_gpu_diff(),
+	    top_diff);
+	break;
+      default:
+	LOG(FATAL) << "Unknown Caffe mode.";
+      }  // switch (Caffe::mode())
+      
+      // Initialize layers top diff with 1 at the wanted positions and
+      // 0 everywhere else for every selected channel.
+//       LOG(INFO) << "Channel ID: " << channel_ids.size() << " with " << channel_ids[0] << "," << channel_ids[1] << "," << channel_ids[2];
+      Dtype* data_ptr = top_diff;
+      for (int j = 0; j < duplicate_count; j++) {
+// 	LOG(INFO) << "Setting 1's to channel " << j+slices[batch_id];
+	for (int c = 0 ; c < channel_count; c++) {
+	  for (int h = 0 ; h < blob_height; h++)  {
+	    for (int w = 0 ; w < blob_width; w++)  {
+	      // If we are still inside valid indices for channel_ids and this channel corresponds to a channel in channel_ids, 
+	      // set this element to 1, and 0 otherwise 
+	      (*data_ptr)= (j+slices[batch_id]<channel_ids.size() && c==channel_ids[j+slices[batch_id]]) ? ((Dtype) 1.) : ((Dtype) 0.);
+// 	      if (c==channel_ids[j])
+// 	      {
+// 		LOG(INFO) << "Setting a "<< (*data_ptr) << " to " << j << " " << c << " " << h << " " << w << " at " << data_ptr;
+// 	      }
+	      data_ptr++;
+	    }
+	  }
+	}
+      }
+      CHECK_EQ(data_ptr,top_diff + top_vecs_[layer_id][i]->count());
+      LOG(INFO) << "Done setting diff for batch " << batch_id;
+//   	// Check if everything went fine
+//   	// Visual check:
+//       data_ptr = top_diff;
+//       for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
+//         for (int c = 0 ; c < channel_count; c++) {
+// 	  for (int h = 0 ; h < blob_height; h++)  {
+// 	    std::ostringstream ss; 
+// 	    ss << j << " " << c << " " << h << ": ";
+// 	    for (int w = 0 ; w < blob_width; w++)  {
+// 	      ss << "," << (*data_ptr);
+// 	      data_ptr++;
+// 	    }
+// 	    if (batch_id > 24 && c < 5)
+// 	      LOG(INFO) << ss.str();
+// 	  }
+//         }
+//       }
+//   	// Equality check:
+//       data_ptr = top_diff;
+//       for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
+// 	for (int c = 0 ; c < channel_count; c++) {
+// 	  for (int h = 0 ; h < blob_height; h++)  {
+// 	    for (int w = 0 ; w < blob_width; w++)  {
+// 	      CHECK_EQ(*data_ptr,top_vecs_[layer_id][i]->diff_at(j,c,h,w));
+// 	      if (*data_ptr!=top_vecs_[layer_id][i]->diff_at(j,c,h,w))
+// 	      {
+// 		LOG(FATAL) << "Diff is not correctly initialized! ";
+// 		return -2;
+// 	      }
+// 	      data_ptr++;
+// 	    }
+// 	  }
+// 	}
+//       }
+      LOG(INFO) << "Equality check passed. ";
+      // Copy data back, if necessary
+      if (Caffe::mode() == Caffe::GPU) {
+	caffe_copy(top_vecs_[layer_id][i]->count(), 
+		  top_diff,
+		  top_vecs_[layer_id][i]->mutable_gpu_diff() );
+      }
+    } // end for every blob
+    LOG(INFO) << "Backpropagation...";
+    // Backward run
+    // for every layer 
+    for (int i = layer_id; i >= 0; --i) {
+      if (layer_need_backward_[i]) {
+	vector<bool> do_propagate(bottom_need_backward_[i].size());
+	for (int j=0; j<bottom_need_backward_[i].size();j++)
+	  do_propagate[j]=true;
+	
+	layers_[i]->Backward(top_vecs_[i], do_propagate, &bottom_vecs_[i]);
+  //       LOG(INFO)<< bottom_need_backward_[i][0];
+  //       LOG(INFO) << *(top_vecs_[i][0]->mutable_cpu_diff()+12);
+  //       int duplicate_count = bottom_vecs_[i][0]->num();
+  //       int channel_count = bottom_vecs_[i][0]->channels();
+  //       int blob_width = bottom_vecs_[i][0]->width();
+  //       int blob_height = bottom_vecs_[i][0]->height();
+  //       Dtype* data_ptr = bottom_vecs_[i][0]->mutable_cpu_diff();
+  //       for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
+  // 	for (int c = 0 ; c < channel_count; c++) {
+  // 	  for (int h = 0 ; h < blob_height; h++)  {
+  // 	    std::ostringstream ss; 
+  // 	    ss << j << " " << c << " " << h << ": ";
+  // 	    for (int w = 0 ; w < blob_width; w++)  {
+  // 	      ss << "," << (*data_ptr);
+  // 	      data_ptr++;
+  // 	    }
+  // 	    if (c < 3)
+  // 	      LOG(INFO) << ss.str();
+  // 	  }
+  // 	}
+  //       }
+	if (debug_info_) { BackwardDebugInfo(i); }
+      }
+    } // end for every layer
+    // Copy data to output 
+    gradients.push_back(new Blob<Dtype>());
+    gradients[gradients.size()-1]->CopyFrom((*bottom_vecs_[0][0]),true,true);
+    LOG(INFO) << "Copied batch blob to temporary storage ("<<batch_id<<"), it now has "<<gradients.size() << " blobs total";
+  } // end for every batch
+  // delete the temporary storage
+  if (Caffe::mode() == Caffe::GPU) {
+    delete[] top_diff;
+  }
+  return 0;
+}  
+
+
+template <typename Dtype>
+const vector<Blob<Dtype>*>& Net<Dtype>::GetFeaturesPrefilled(string layername) {
   // calculate the id of the target layer
   vector<string>::const_iterator layer_iter=std::find(layer_names().begin(), layer_names().end(), layername);
   int layer_id;
@@ -516,108 +686,8 @@ const vector<Blob<Dtype>*>& Net<Dtype>::CalcGradientsPrefilled(string layername,
     layers_[i]->Forward(bottom_vecs_[i], &top_vecs_[i]);
     if (debug_info_) { ForwardDebugInfo(i); }
   }
-  
-  // Initialized the diffs
-  // For every blob 
-  for (int i = 0; i < top_vecs_[layer_id].size(); i++) {
-    // Get the number of channels of this blob
-    int duplicate_count = top_vecs_[layer_id][i]->num();
-    int channel_count = top_vecs_[layer_id][i]->channels();
-    int blob_width = top_vecs_[layer_id][i]->width();
-    int blob_height = top_vecs_[layer_id][i]->height();
-    
-    // First get the diff data, if diff is on GPU, copy it for better performance
-    Dtype* top_diff = NULL;
-    switch (Caffe::mode()) {
-    case Caffe::CPU:
-      top_diff = top_vecs_[layer_id][i]->mutable_cpu_diff();
-      break;
-    case Caffe::GPU:
-      top_diff = new Dtype[top_vecs_[layer_id][i]->count()];
-      caffe_copy(top_vecs_[layer_id][i]->count(), 
-	  top_vecs_[layer_id][i]->mutable_gpu_diff(),
-          top_diff);
-      break;
-    default:
-      LOG(FATAL) << "Unknown Caffe mode.";
-    }  // switch (Caffe::mode())
-    
-    // Initialize layers top diff with 1 at the wanted positions and
-    // 0 everywhere else for every selected channel.
-    // LOG(INFO) << "Channel ID: " << channel_ids.size() << " with " << channel_ids[0] << "," << channel_ids[1] << "," << channel_ids[2];
-    Dtype* data_ptr = top_diff;
-    for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
-      for (int c = 0 ; c < channel_count; c++) {
-	for (int h = 0 ; h < blob_height; h++)  {
-	  for (int w = 0 ; w < blob_width; w++)  {
-	    (*data_ptr)= (c==channel_ids[j]) ? ((Dtype) 1.) : ((Dtype) 1.);
-// 	    if (c==channel_ids[j])
-// 	    {
-// 	      LOG(INFO) << "Setting a "<< (*data_ptr) << " to " << j << " " << c << " " << h << " " << w << " at " << data_ptr;
-// 	    }
-	    data_ptr++;
-	  }
-	}
-      }
-    }
-//     data_ptr = top_diff;
-//     for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
-//       for (int c = 0 ; c < channel_count; c++) {
-// 	for (int h = 0 ; h < blob_height; h++)  {
-// 	  std::ostringstream ss; 
-// 	  ss << j << " " << c << " " << h << ": ";
-// 	  for (int w = 0 ; w < blob_width; w++)  {
-// 	    ss << "," << (*data_ptr);
-// 	    data_ptr++;
-// 	  }
-// 	  if (c < 5)
-// 	    LOG(INFO) << ss.str();
-// 	}
-//       }
-//     }
-    // Copy data back, if necessary
-    if (Caffe::mode() == Caffe::GPU) {
-      caffe_copy(top_vecs_[layer_id][i]->count(), 
-		 top_diff,
-		 top_vecs_[layer_id][i]->mutable_gpu_diff() );
-      delete[] top_diff;
-    }
-  }
-    
-  // Backward run
-  for (int i = layer_id; i >= 0; --i) {
-    if (layer_need_backward_[i]) {
-      vector<bool> do_propagate(bottom_need_backward_[i].size());
-      for (int j=0; j<bottom_need_backward_[i].size();j++)
-	do_propagate[j]=true;
-      
-      layers_[i]->Backward(top_vecs_[i], do_propagate, &bottom_vecs_[i]);
-//       LOG(INFO)<< bottom_need_backward_[i][0];
-//       LOG(INFO) << *(top_vecs_[i][0]->mutable_cpu_diff()+12);
-//       int duplicate_count = bottom_vecs_[i][0]->num();
-//       int channel_count = bottom_vecs_[i][0]->channels();
-//       int blob_width = bottom_vecs_[i][0]->width();
-//       int blob_height = bottom_vecs_[i][0]->height();
-//       Dtype* data_ptr = bottom_vecs_[i][0]->mutable_cpu_diff();
-//       for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
-// 	for (int c = 0 ; c < channel_count; c++) {
-// 	  for (int h = 0 ; h < blob_height; h++)  {
-// 	    std::ostringstream ss; 
-// 	    ss << j << " " << c << " " << h << ": ";
-// 	    for (int w = 0 ; w < blob_width; w++)  {
-// 	      ss << "," << (*data_ptr);
-// 	      data_ptr++;
-// 	    }
-// 	    if (c < 3)
-// 	      LOG(INFO) << ss.str();
-// 	  }
-// 	}
-//       }
-      if (debug_info_) { BackwardDebugInfo(i); }
-    }
-  }
-  return bottom_vecs_[0];
-}  
+  return top_vecs_[layer_id];
+}
 
 template <typename Dtype>
 void Net<Dtype>::BackwardFromTo(int start, int end) {

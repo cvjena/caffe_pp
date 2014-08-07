@@ -48,39 +48,33 @@ function [scores, maxlabel] = matcaffe_demo(im, use_gpu)
 
 % init caffe network (spews logging info)
 % if exist('use_gpu', 'var')
-%   matcaffe_init(use_gpu);
+  matcaffe_init(1);
 % else
 %   matcaffe_init();
 % end
 
 if nargin < 1
   % For demo purposes we will use the peppers image
-  im = imread('onions.png');
+  im = imread('peppers.png');
 end
 
 % prepare oversampled input
 % input_data is Height x Width x Channel x Num
-tic;
 input_data = {prepare_image(im)};
-toc;
 
 % do forward pass to get scores
 % scores are now Width x Height x Channels x Num
 tic;
-scores = caffe('forward', input_data);
+features = caffe('get_features',input_data,'fc7');
 toc;
+f=squeeze(features{1});
+assert(size(f,1)==4096);
 
-scores = scores{1};
-% size(scores)
-scores = squeeze(scores);
-scores = mean(scores,2);
-
-[~,maxlabel] = max(scores);
 
 % ------------------------------------------------------------------------
 function images = prepare_image(im)
 % ------------------------------------------------------------------------
-d = load('cub200_cropped_enlarged_mean');
+d = load('ilsvrc_2012_mean');
 IMAGE_MEAN = d.image_mean;
 IMAGE_DIM = 256;
 CROPPED_DIM = 227;

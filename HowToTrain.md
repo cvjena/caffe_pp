@@ -101,7 +101,9 @@ layers {
 }
 ```
 
-The remaining part is very similar to the regular training. 
+Note the changed blobs_lr (increased by a factor of 10) and the changed layer as well as blobs name. 
+
+The remaining part is similar to the regular training:
 
 ```
 GLOG_logtostderr=1 caffe.bin train --solver_proto_file=/path/to/your_solver.prototxt --pretrained_net_file=/path/to/pretrained_model

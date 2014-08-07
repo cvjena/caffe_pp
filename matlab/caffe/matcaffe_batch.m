@@ -20,7 +20,10 @@ function [scores,list_im] = matcaffe_batch(list_im, use_gpu)
 %  scores = matcaffe_batch('list_images.txt', 1);
 if nargin < 1
   % For test purposes
-  list_im = {'peppers.png','onions.png'};
+    fid=fopen('test_cub200_filelist.txt');
+    fl=textscan(fid,'%s');
+    list_im=fl{1}';
+    fclose(fid);
 end
 if ischar(list_im)
     %Assume it is a file contaning the list of images

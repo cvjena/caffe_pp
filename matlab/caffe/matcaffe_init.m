@@ -1,4 +1,4 @@
-function  matcaffe_init(use_gpu, model_def_file, model_file)
+function  matcaffe_init(use_gpu, model_def_file, model_file, reset)
 % matcaffe_init(model_def_file, model_file, use_gpu)
 % Initilize matcaffe wrapper
 
@@ -14,9 +14,11 @@ if nargin < 3 || isempty(model_file)
   % By default use caffe reference model
   model_file = '../../examples/imagenet/caffe_reference_imagenet_model';
 end
+if nargin < 4
+    reset = 0;
+end
 
-
-if caffe('is_initialized') == 0
+if caffe('is_initialized') == 0 || reset == 1
   if exist(model_file, 'file') == 0
     % NOTE: you'll have to get the pre-trained ILSVRC network
     error('You need a network model file');

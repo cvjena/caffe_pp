@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <algorithm>
 #include "mex.h"
 #include "caffe/caffe.hpp"
 
@@ -144,13 +145,113 @@ static mxArray* do_backward(const mxArray* const top_diff) {
 
 static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* const layername, const mxArray* const channel_ids)
 {
+  LOG(INFO) << "In do_get_gradients()";
   char* layer_name = mxArrayToString(layername);
   const double* const selected_channels =
     reinterpret_cast<const double* const>(mxGetPr(channel_ids));
   // convert float array to int array
   vector<int> selected_channels_i;
-  for (unsigned int i=0; i<mxGetDimensions(channel_ids)[0];i++)
+  for (unsigned int i=0; i<mxGetDimensions(channel_ids)[0]*mxGetDimensions(channel_ids)[1];i++) {
       selected_channels_i.push_back(((int)(*(selected_channels + i)+0.5)));
+//       LOG(INFO) << "Adding " << selected_channels_i[selected_channels_i.size()-1] << " to channel list.";
+  }
+  LOG(INFO) << "Copy data to net.";
+  // Copy the input to the bottom blob
+  vector<Blob<float>*>& input_blobs = net_->input_blobs();
+  CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(bottom)[0]),
+      input_blobs.size());
+  for (unsigned int i = 0; i < input_blobs.size(); ++i) {
+    LOG(INFO) << "Copy data to net blob " << i;
+    const mxArray* const elem = mxGetCell(bottom, i);
+    CHECK_EQ(mxGetNumberOfElements(elem),input_blobs[i]->count());
+    const float* const data_ptr =
+        reinterpret_cast<const float* const>(mxGetPr(elem));
+    LOG(INFO) << "Copy data to net blob " << i;
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      caffe_copy(input_blobs[i]->count(), data_ptr,
+          input_blobs[i]->mutable_cpu_data());
+      break;
+    case Caffe::GPU:
+      caffe_copy(input_blobs[i]->count(), data_ptr,
+          input_blobs[i]->mutable_gpu_data());
+      break;
+    default:
+      LOG(FATAL) << "Unknown Caffe mode.";
+    }  // switch (Caffe::mode())
+  }
+  LOG(INFO) << "Initializing variables...";
+  // Start gradient calculation
+  int batch_size = net_->top_vecs()[0][0]->num();
+  int channels_left = selected_channels_i.size();
+  // Intermediate storage for the blobs created during each batch
+  vector<Blob<float>* > output_blobs;
+  mxArray* mx_out;
+  float* data_ptr;
+  LOG(INFO) << "Starting gradient calculation...";
+  if (net_->CalcGradientsPrefilled(layer_name, selected_channels_i, output_blobs)!=0) {
+     LOG(INFO) << "Error calculating the gradients";
+     mwSize dims[2] = {0,0};
+     mx_out = mxCreateNumericArray(2,dims, mxSINGLE_CLASS, mxREAL);
+  }
+  else {
+    LOG(INFO)<< "Gradient calculation finished, received " << output_blobs.size() << " blobs. Starting to copy data...";
+    int data_copied=0;
+    // For every output blob (each blob = the result of one batch
+    for (int i = 0; i < output_blobs.size(); ++i) {
+      LOG(INFO) << "Working on blob " << i;
+      if (i == 0) {
+	LOG(INFO) << "Creating output matrix";
+	// internally data is stored as (width, height, channels, num)
+	// where width is the fastest dimension
+	mwSize dims[4] = {output_blobs[i]->width(), output_blobs[i]->height(),
+	  output_blobs[i]->channels(), (int) selected_channels_i.size()};
+	mx_out = mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+        data_ptr = reinterpret_cast<float*>(mxGetPr(mx_out));
+	LOG(INFO) << "Output matrix created.";
+      }
+      int num_to_copy = std::min(output_blobs[i]->count(),output_blobs[i]->width()*output_blobs[i]->height()
+							*output_blobs[i]->channels() * channels_left);
+      LOG(INFO) << "Copying " << num_to_copy << " floats";
+      switch (Caffe::mode()) {
+      case Caffe::CPU:
+	caffe_copy(num_to_copy, output_blobs[i]->mutable_cpu_diff(),
+	    data_ptr);
+	break;
+      case Caffe::GPU:
+	caffe_copy(num_to_copy, output_blobs[i]->mutable_gpu_diff(),
+	    data_ptr);
+	break;
+      default:
+	LOG(FATAL) << "Unknown Caffe mode.";
+      }  // switch (Caffe::mode())
+      data_copied = data_copied + num_to_copy;
+      data_ptr = data_ptr + num_to_copy;
+      channels_left = std::max(0,channels_left - batch_size);
+      LOG(INFO) << "Blob done, " << channels_left << " channels left";
+    }
+    CHECK_EQ(data_copied, output_blobs[0]->width()*output_blobs[0]->height()*output_blobs[0]->channels() * selected_channels_i.size());
+    LOG(INFO) << "Output blob has size " << output_blobs[0]->width() << " " << output_blobs[0]->height() << " " << output_blobs[0]->channels() << " " << output_blobs[0]->num();
+    LOG(INFO) << "data ptr " << data_ptr << " array pointer " << reinterpret_cast<float*>(mxGetPr(mx_out));
+    CHECK_EQ(data_ptr,reinterpret_cast<float*>(mxGetPr(mx_out))+output_blobs[0]->width()*output_blobs[0]->height()*output_blobs[0]->channels() * selected_channels_i.size());
+  }
+  LOG(INFO) << "Freeing memory";
+  // Remove all temp blobs
+  for (vector<Blob<float>* >::iterator it=output_blobs.begin(); it!=output_blobs.end(); it++)
+  {
+    if ((*it)!=NULL) {
+      LOG(INFO) << "Deleting a blob...";
+      delete (*it);
+    }
+  }
+  LOG(INFO) << "Job done...";
+  return mx_out;
+}
+
+
+static mxArray* do_get_features(const mxArray* const bottom, const mxArray* const layername)
+{
+  char* layer_name = mxArrayToString(layername);
   
   // Copy the input to the bottom blob
   vector<Blob<float>*>& input_blobs = net_->input_blobs();
@@ -174,9 +275,8 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
     }  // switch (Caffe::mode())
   }
   
-  LOG(INFO) << "Starting calculation.";
   // Start gradient calculation
-  const vector<Blob<float>*>& output_blobs = net_->CalcGradientsPrefilled(layer_name, selected_channels_i);
+  const vector<Blob<float>*>& output_blobs = net_->GetFeaturesPrefilled(layer_name);
   
   
   mxArray* mx_out = mxCreateCellMatrix(output_blobs.size(), 1);
@@ -190,11 +290,11 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
     float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_blob));
     switch (Caffe::mode()) {
     case Caffe::CPU:
-      caffe_copy(output_blobs[i]->count(), output_blobs[i]->mutable_cpu_diff(),
+      caffe_copy(output_blobs[i]->count(), output_blobs[i]->cpu_data(),
           data_ptr);
       break;
     case Caffe::GPU:
-      caffe_copy(output_blobs[i]->count(), output_blobs[i]->mutable_gpu_diff(),
+      caffe_copy(output_blobs[i]->count(), output_blobs[i]->gpu_data(),
           data_ptr);
       break;
     default:
@@ -204,6 +304,7 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
 
   return mx_out;
 }
+
 
 static mxArray* do_get_weights() {
   const vector<shared_ptr<Layer<float> > >& layers = net_->layers();
@@ -367,14 +468,24 @@ static void backward(MEX_ARGS) {
 }
 
 static void get_gradients(MEX_ARGS) {
+  LOG(INFO) << "In get_gradients() with " << nrhs << " arguments";
   if (nrhs != 3) {
     LOG(ERROR) << "Only given " << nrhs << " arguments";
     mexErrMsgTxt("Wrong number of arguments");
   }
-
+  LOG(INFO) << "Calling do_get_gradients()";
   plhs[0] = do_get_gradients(prhs[0], prhs[1], prhs[2]);
+  LOG(INFO) << "Returning to matlab";
 }
 
+static void get_features(MEX_ARGS) {
+  if (nrhs != 2) {
+    LOG(ERROR) << "Only given " << nrhs << " arguments";
+    mexErrMsgTxt("Wrong number of arguments");
+  }
+
+  plhs[0] = do_get_features(prhs[0], prhs[1]);
+}
 
 static void is_initialized(MEX_ARGS) {
   if (!net_) {
@@ -397,6 +508,7 @@ static handler_registry handlers[] = {
   { "forward",            forward         },
   { "backward",           backward        },
   { "get_gradients",      get_gradients   },
+  { "get_features",       get_features    },
   { "init",               init            },
   { "is_initialized",     is_initialized  },
   { "set_mode_cpu",       set_mode_cpu    },
