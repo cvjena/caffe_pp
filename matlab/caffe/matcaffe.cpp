@@ -145,28 +145,37 @@ static mxArray* do_backward(const mxArray* const top_diff) {
 
 static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* const layername, const mxArray* const channel_ids)
 {
-//   LOG(INFO) << "In do_get_gradients()";
+  if (!net_)
+    mexErrMsgTxt("Initialize caffe first by calling matcaffe_init.");
   char* layer_name = mxArrayToString(layername);
   const double* const selected_channels =
     reinterpret_cast<const double* const>(mxGetPr(channel_ids));
   // convert float array to int array
   vector<int> selected_channels_i;
   for (unsigned int i=0; i<mxGetDimensions(channel_ids)[0]*mxGetDimensions(channel_ids)[1];i++) {
-      selected_channels_i.push_back(((int)(*(selected_channels + i)+0.5)));
-//       LOG(INFO) << "Adding " << selected_channels_i[selected_channels_i.size()-1] << " to channel list.";
+    if (*(selected_channels + i)<0)
+      mexErrMsgTxt("The channel ids must be greater than zero!");
+    selected_channels_i.push_back(((int)(*(selected_channels + i)+0.5)));
   }
-//   LOG(INFO) << "Copy data to net.";
+  if (selected_channels_i.size()<1)
+    mexErrMsgTxt("Channel list must not be empty.");
   // Copy the input to the bottom blob
   vector<Blob<float>*>& input_blobs = net_->input_blobs();
-  CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(bottom)[0]),
-      input_blobs.size());
+  if (static_cast<unsigned int>(mxGetDimensions(bottom)[0])!=input_blobs.size())
+    mexErrMsgTxt("The input has to be a cell array usually containing a single height x width x channels x batch size image!");
   for (unsigned int i = 0; i < input_blobs.size(); ++i) {
-//     LOG(INFO) << "Copy data to net blob " << i;
     const mxArray* const elem = mxGetCell(bottom, i);
-    CHECK_EQ(mxGetNumberOfElements(elem),input_blobs[i]->count());
+    // Check if the input dimensions are correct
+    if (mxGetDimensions(elem)[0]!=input_blobs[i]->width())
+      mexErrMsgTxt("The height of the input images is wrong!");
+    if (mxGetDimensions(elem)[1]!=input_blobs[i]->height())
+      mexErrMsgTxt("The width of the input images is wrong!");
+    if (mxGetDimensions(elem)[2]!=input_blobs[i]->channels())
+      mexErrMsgTxt("The channel size of the input images is wrong!");
+    if (mxGetDimensions(elem)[3]!=input_blobs[i]->num())
+      mexErrMsgTxt("The batch size of the input images is wrong!");
     const float* const data_ptr =
         reinterpret_cast<const float* const>(mxGetPr(elem));
-//     LOG(INFO) << "Copy data to net blob " << i;
     switch (Caffe::mode()) {
     case Caffe::CPU:
       caffe_copy(input_blobs[i]->count(), data_ptr,
@@ -180,7 +189,6 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
       LOG(FATAL) << "Unknown Caffe mode.";
     }  // switch (Caffe::mode())
   }
-//   LOG(INFO) << "Initializing variables...";
   // Start gradient calculation
   int batch_size = net_->top_vecs()[0][0]->num();
   int channels_left = selected_channels_i.size();
@@ -188,31 +196,23 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
   vector<Blob<float>* > output_blobs;
   mxArray* mx_out;
   float* data_ptr;
-//   LOG(INFO) << "Starting gradient calculation...";
   if (net_->CalcGradientsPrefilled(layer_name, selected_channels_i, output_blobs)!=0) {
-//      LOG(INFO) << "Error calculating the gradients";
-     mwSize dims[2] = {0,0};
-     mx_out = mxCreateNumericArray(2,dims, mxSINGLE_CLASS, mxREAL);
+     mexErrMsgTxt("Error while calculating. Probably a layer with that name does not exist.");
   }
   else {
-//     LOG(INFO)<< "Gradient calculation finished, received " << output_blobs.size() << " blobs. Starting to copy data...";
     int data_copied=0;
     // For every output blob (each blob = the result of one batch
     for (int i = 0; i < output_blobs.size(); ++i) {
-//       LOG(INFO) << "Working on blob " << i;
       if (i == 0) {
-// 	LOG(INFO) << "Creating output matrix";
 	// internally data is stored as (width, height, channels, num)
 	// where width is the fastest dimension
 	mwSize dims[4] = {output_blobs[i]->width(), output_blobs[i]->height(),
 	  output_blobs[i]->channels(), (int) selected_channels_i.size()};
 	mx_out = mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
         data_ptr = reinterpret_cast<float*>(mxGetPr(mx_out));
-// 	LOG(INFO) << "Output matrix created.";
       }
       int num_to_copy = std::min(output_blobs[i]->count(),output_blobs[i]->width()*output_blobs[i]->height()
 							*output_blobs[i]->channels() * channels_left);
-//       LOG(INFO) << "Copying " << num_to_copy << " floats";
       switch (Caffe::mode()) {
       case Caffe::CPU:
 	caffe_copy(num_to_copy, output_blobs[i]->mutable_cpu_diff(),
@@ -228,37 +228,41 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
       data_copied = data_copied + num_to_copy;
       data_ptr = data_ptr + num_to_copy;
       channels_left = std::max(0,channels_left - batch_size);
-//       LOG(INFO) << "Blob done, " << channels_left << " channels left";
     }
     CHECK_EQ(data_copied, output_blobs[0]->width()*output_blobs[0]->height()*output_blobs[0]->channels() * selected_channels_i.size());
-//     LOG(INFO) << "Output blob has size " << output_blobs[0]->width() << " " << output_blobs[0]->height() << " " << output_blobs[0]->channels() << " " << output_blobs[0]->num();
-//     LOG(INFO) << "data ptr " << data_ptr << " array pointer " << reinterpret_cast<float*>(mxGetPr(mx_out));
     CHECK_EQ(data_ptr,reinterpret_cast<float*>(mxGetPr(mx_out))+output_blobs[0]->width()*output_blobs[0]->height()*output_blobs[0]->channels() * selected_channels_i.size());
   }
-//   LOG(INFO) << "Freeing memory";
   // Remove all temp blobs
   for (vector<Blob<float>* >::iterator it=output_blobs.begin(); it!=output_blobs.end(); it++)
   {
     if ((*it)!=NULL) {
-//       LOG(INFO) << "Deleting a blob...";
       delete (*it);
     }
   }
-//   LOG(INFO) << "Job done...";
   return mx_out;
 }
 
 
 static mxArray* do_get_features(const mxArray* const bottom, const mxArray* const layername)
 {
+  if (!net_)
+    mexErrMsgTxt("Initialize caffe first by calling matcaffe_init.");
   char* layer_name = mxArrayToString(layername);
   
   // Copy the input to the bottom blob
   vector<Blob<float>*>& input_blobs = net_->input_blobs();
-  CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(bottom)[0]),
-      input_blobs.size());
+  if (static_cast<unsigned int>(mxGetDimensions(bottom)[0])!=input_blobs.size())
+    mexErrMsgTxt("The input has to be a cell array usually containing a single height x width x channels x batch size image!");
   for (unsigned int i = 0; i < input_blobs.size(); ++i) {
     const mxArray* const elem = mxGetCell(bottom, i);
+    if (mxGetDimensions(elem)[0]!=input_blobs[i]->width())
+      mexErrMsgTxt("The height of the input images is wrong!");
+    if (mxGetDimensions(elem)[1]!=input_blobs[i]->height())
+      mexErrMsgTxt("The width of the input images is wrong!");
+    if (mxGetDimensions(elem)[2]!=input_blobs[i]->channels())
+      mexErrMsgTxt("The channel size of the input images is wrong!");
+    if (mxGetDimensions(elem)[3]!=input_blobs[i]->num())
+      mexErrMsgTxt("The batch size of the input images is wrong!");
     const float* const data_ptr =
         reinterpret_cast<const float* const>(mxGetPr(elem));
     switch (Caffe::mode()) {
@@ -276,8 +280,10 @@ static mxArray* do_get_features(const mxArray* const bottom, const mxArray* cons
   }
   
   // Start gradient calculation
-  const vector<Blob<float>*>& output_blobs = net_->GetFeaturesPrefilled(layer_name);
-  
+  vector<Blob<float>* > output_blobs;
+  if (net_->GetFeaturesPrefilled(layer_name, output_blobs)!=0) {
+     mexErrMsgTxt("Error while calculating. Probably a layer with that name does not exist.");
+  }
   
   mxArray* mx_out = mxCreateCellMatrix(output_blobs.size(), 1);
   for (unsigned int i = 0; i < output_blobs.size(); ++i) {

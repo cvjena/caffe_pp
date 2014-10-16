@@ -464,6 +464,7 @@ const vector<Blob<Dtype>*>& Net<Dtype>::ForwardPrefilled(Dtype* loss) {
   } else {
     ForwardFromTo(0, layers_.size() - 1);
   }
+  
   return net_output_blobs_;
 }
 
@@ -509,7 +510,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
     layer_id=layer_iter-layer_names().begin();
   else
   {
-      LOG(FATAL) << "    Layer " << layername << " does not exist." << std::endl;
+      LOG(WARNING) << "    Layer " << layername << " does not exist." << std::endl;
       return -1;
   }
   // Forward Run
@@ -670,7 +671,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
 
 
 template <typename Dtype>
-const vector<Blob<Dtype>*>& Net<Dtype>::GetFeaturesPrefilled(string layername) {
+const int Net<Dtype>::GetFeaturesPrefilled(string layername, vector<Blob<Dtype>* >& features) {
   // calculate the id of the target layer
   vector<string>::const_iterator layer_iter=std::find(layer_names().begin(), layer_names().end(), layername);
   int layer_id;
@@ -678,15 +679,17 @@ const vector<Blob<Dtype>*>& Net<Dtype>::GetFeaturesPrefilled(string layername) {
     layer_id=layer_iter-layer_names().begin();
   else
   {
-      LOG(FATAL) << "    Layer " << layername << " does not exist." << std::endl;
-      return net_output_blobs_;
+      LOG(WARNING) << "    Layer " << layername << " does not exist." << std::endl;
+      return -1;
   }
   // Forward Run
   for (int i = 0; i <= layer_id; ++i) {
     layers_[i]->Forward(bottom_vecs_[i], &top_vecs_[i]);
     if (debug_info_) { ForwardDebugInfo(i); }
   }
-  return top_vecs_[layer_id];
+  features.assign(top_vecs_[layer_id].begin(),top_vecs_[layer_id].end());
+  
+  return 0;
 }
 
 template <typename Dtype>

@@ -55,9 +55,9 @@ function [scores, maxlabel] = matcaffe_demo(im, use_gpu)
 
 if nargin < 1
   % For demo purposes we will use the peppers image
-  im = imread('onions.png');
+  im = imread('peppers.png');
 end
-
+im=zeros(5,5,3);
 % prepare oversampled input
 % input_data is Height x Width x Channel x Num
 tic;
@@ -68,11 +68,15 @@ toc;
 % scores are now Width x Height x Channels x Num
 tic;
 scores = caffe('forward', input_data);
+features = caffe('get_features',input_data,'prob');
 toc;
 
 scores = scores{1};
 % size(scores)
 scores = squeeze(scores);
+features=features{1};
+features=squeeze(features);
+
 scores = mean(scores,2);
 
 [~,maxlabel] = max(scores);

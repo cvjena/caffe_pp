@@ -33,14 +33,14 @@ fprintf('Done with init\n');
 
 % set to use GPU or CPU
 if use_gpu
-  fprintf('Using GPU Mode\n');
+%   fprintf('Using GPU Mode\n');
   caffe('set_mode_gpu');
 else
-  fprintf('Using CPU Mode\n');
+%   fprintf('Using CPU Mode\n');
   caffe('set_mode_cpu');
 end
-fprintf('Done with set_mode\n');
+% fprintf('Done with set_mode\n');
 
 % put into test mode
 caffe('set_phase_test');
-fprintf('Done with set_phase_test\n');
+% fprintf('Done with set_phase_test\n');

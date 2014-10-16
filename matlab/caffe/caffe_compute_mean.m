@@ -5,7 +5,7 @@ function [ m ] = caffe_compute_mean( filelist, is_train )
     fclose(fid);
     im = int32(imread(fl{1}));
     dims=size(im);
-    m = int32(zeros(dims));
+    m = int32(zeros(size(im,1),size(im,2),3));
     for i=1:size(fl,1)
         if (is_train(i,:))
             disp(i);

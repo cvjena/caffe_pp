@@ -10,7 +10,7 @@ This guide is a step-by-step explanation on how to train a deep convolutional ne
 In order to use your dataset in caffe, you need to convert it to the _LevelDB_ format, which is a lightweight key-data-storage engine. It is possible to use caffe without having your dataset in the leveldb format, but this would require you to write some custom code. 
 
 
-The first step is to create two file lists, one for the training and one for the test set. Suppose the former is called `train.txt` and the latter `val.txt`. The paths in these file lists should be relative. For each of these two sets, we will create a separate LevelDB. We will use the `convert_imageset.bin` tool, which comes with the caffe framework. 
+The first step is to create two file lists with the corresponding labels, one for the training and one for the test set. Suppose the former is called `train.txt` and the latter `val.txt`. The paths in these file lists should be relative. The labels should start at 0! For each of these two sets, we will create a separate LevelDB. We will use the `convert_imageset.bin` tool, which comes with the caffe framework. 
 ```
 #Images will be resized accordingly, if these are greater than zero
 RESIZE_HEIGHT=0

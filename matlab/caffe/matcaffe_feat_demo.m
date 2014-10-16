@@ -65,10 +65,13 @@ input_data = {prepare_image(im)};
 % do forward pass to get scores
 % scores are now Width x Height x Channels x Num
 tic;
-features = caffe('get_features',input_data,'fc7');
+features = caffe('get_features',input_data,'relu7');
+f2 = caffe_features({im},'relu7','ilsvrc_2012_mean');
 toc;
 f=squeeze(features{1});
 assert(size(f,1)==4096);
+f=f(:,1)';
+f=f+0;
 
 
 % ------------------------------------------------------------------------

@@ -1,5 +1,5 @@
-function [scores, maxlabel] = matcaffe_demo(im, use_gpu)
-% scores = matcaffe_demo(im, use_gpu)
+function [scores, maxlabel] = matcaffe_grad_demo(im, use_gpu)
+% scores = matcaffe_grad_demo(im, use_gpu)
 %
 % Demo of the matlab wrapper using the ILSVRC network.
 %
@@ -45,61 +45,27 @@ function [scores, maxlabel] = matcaffe_demo(im, use_gpu)
 % The actual forward function. It takes in a cell array of 4-D arrays as
 % input and outputs a cell array. 
 
-
-% init caffe network (spews logging info)
-% if exist('use_gpu', 'var')
-  matcaffe_init(1);
-% else
-%   matcaffe_init();
-% end
-
 if nargin < 1
   % For demo purposes we will use the peppers image
   im = imread('peppers.png');
 end
-
-% prepare oversampled input
-% input_data is Height x Width x Channel x Num
-input_data = {prepare_image(im)};
-
-% do forward pass to get scores
-% scores are now Width x Height x Channels x Num
 tic;
-scores = caffe('get_gradients',input_data,'pool5',[0; 1; 2]);
+gradients = caffe_gradients(im,'pool5',(195:205)');
 toc;
-a=scores{1}(:,:,:,2);
-a=sqrt(sum(a.^2,3));
-imshow(imadjust(a));
-
-
-% ------------------------------------------------------------------------
-function images = prepare_image(im)
-% ------------------------------------------------------------------------
-d = load('ilsvrc_2012_mean');
-IMAGE_MEAN = d.image_mean;
-IMAGE_DIM = 256;
-CROPPED_DIM = 227;
-
-% resize to fixed input size
-im = single(im);
-im = imresize(im, [IMAGE_DIM IMAGE_DIM], 'bilinear');
-% permute from RGB to BGR (IMAGE_MEAN is already BGR)
-im = im(:,:,[3 2 1]) - IMAGE_MEAN;
-
-% oversample (4 corners, center, and their x-axis flips)
-images = zeros(CROPPED_DIM, CROPPED_DIM, 3, 10, 'single');
-indices = [0 IMAGE_DIM-CROPPED_DIM] + 1;
-curr = 1;
-for i = indices
-  for j = indices
-    images(:, :, :, curr) = ...
-        permute(im(i:i+CROPPED_DIM-1, j:j+CROPPED_DIM-1, :), [2 1 3]);
-    images(:, :, :, curr+5) = images(end:-1:1, :, :, curr);
-    curr = curr + 1;
-  end
+% tic 
+% scores=caffe('forward',{repmat(caffe_prepare_image(im),1,1,1,10)});
+% g2 = caffe('backward',{ones(1,1,1000,10)});
+% toc
+% g2=g2{1};
+% gradients=g2;
+gradients=gradients(:,:,:,1:9);
+for i=1:size(gradients,4)
+    g=gradients(:,:,:,i);
+    g=abs(g);
+    g=sum(g,3);
+    g=g/max(g(:));
+%     g=g*4;
+    subplot(ceil(sqrt(size(gradients,4))),ceil(sqrt(size(gradients,4))),i);
+    imshow(g);
 end
-center = floor(indices(2) / 2)+1;
-images(:,:,:,5) = ...
-    permute(im(center:center+CROPPED_DIM-1,center:center+CROPPED_DIM-1,:), ...
-        [2 1 3]);
-images(:,:,:,10) = images(end:-1:1, :, :, curr);
+end

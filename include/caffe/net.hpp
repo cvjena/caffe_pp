@@ -44,7 +44,7 @@ class Net {
   
   // Calculates the forward pass until the layer with the specified name and returns the 
   // activations.
-  const vector<Blob<Dtype>*>& GetFeaturesPrefilled(string layername);
+  const int GetFeaturesPrefilled(string layername, vector<Blob<Dtype>* >& features);
   
   // The From and To variants of Forward and Backward operate on the
   // (topological) ordering by which the net is specified. For general DAG
