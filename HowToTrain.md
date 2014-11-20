@@ -4,6 +4,12 @@ by Marcel Simon
 
 This guide is a step-by-step explanation on how to train a deep convolutional network for a classification task. 
 
+## Pre-Preparing
+Set up the environment for using the caffe tools. LD_LIBRARY_PATH is required to run caffe. Setting the PATH is optional, but makes everything more convenient. There is no need to copy the caffe folder. 
+
+    ssh [computer with caffe like herkules]
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/home/simon/Research/lib/gflags/lib:/usr/local/leveldb/leveldb-1.15.0:/home/simon/Research/lib/lmdb/libraries/liblmdb:/opt/intel/composer_xe_2013_sp1.0.080/mkl/lib/intel64:/usr/lib64
+    export PATH=/home/simon/Research/lib/caffe/build/tools:$PATH
 
 ## Preparing the dataset
 
@@ -20,7 +26,7 @@ echo "Creating train leveldb..."
 GLOG_logtostderr=1 convert_imageset.bin \
     /path/to/training_images/ \
     train.txt \
-    /path/to/your_train_leveldb 1
+    /path/to/your_train_leveldb 1 leveldb
     $RESIZE_HEIGHT $RESIZE_WIDTH
 
 echo "Creating val leveldb..."
