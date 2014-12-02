@@ -34,7 +34,8 @@ Matlab version other than 8.2 (that is 2013b) might not work since the MEX files
 >> addpath('/home/simon/Research/lib/caffe/matlab/caffe/')
 >> matcaffe_init(1,'/home/simon/Research/lib/caffe/examples/imagenet/imagenet_deploy.prototxt ','/home/simon/Research/lib/caffe/examples/imagenet/caffe_reference_imagenet_model',1);
 ```
-This initialization has to be done only once for each Matlab instance. If you use parfor, that this initialization has to be done on each thread. Now you can run 
+
+This initialization has to be done only once for each Matlab instance. If you use parfor, that this initialization has to be done on each thread. If you used the imagenet mean file and the usual 227x227 crop size in training, you can now simpy run:
 
 ```matlab
 >> f=caffe_features('/path/to/filelist.txt'); 
@@ -48,7 +49,6 @@ to extract feature using a filelist with the default parameter. The first parame
 ```
 
 `caffe_features` has more paramters that might be required depending on your needs and the architecture:
-
 
 ```matlab
 function [ features ] = caffe_features( images, layer, meanfile, batch_size, width)
@@ -67,4 +67,6 @@ function [ features ] = caffe_features( images, layer, meanfile, batch_size, wid
 % input. Can be found in the prototxt. 
 ```
 
-The return value is a n x p - matrix containing n features vectors for each images processed. p is the feature dimension and depends on the layer you chose. 
+The return value is a n x p - matrix containing n features vectors for each images processed. p is the feature dimension and depends on the layer you chose.
+
+If you did not use the imagenet mean file, you need to compute the mean yourself by adding up all the images in your train dataset and computing the mean. If all images have the same size, you can use `caffe_compute_mean( filelist, is_train )` for it. You might need to copy and modify it according to your needs.
