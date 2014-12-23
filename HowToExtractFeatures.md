@@ -1,6 +1,6 @@
 # How To Extract Features using Matlab
 
-Once you have trained your network, you can use it to predict new images and extract features. You probably want to create a deploy.prototxt file from your architecture in order to avoid the image cropping which is done by the image data layer used in training. To do so, copy the `train_val.prototxt` and name it `deploy.prototxt`. Now remove the image data layer and the accuracy layer at the end, if there is one. Similar to the `imagenet_deploy.prototxt` file, insert four lines at the beginning after the net name. It should look like: 
+Once you have trained your network, you can use it to predict new images and extract features. You probably want to create a deploy.prototxt file from your architecture in order to avoid the image cropping which is done by the image data layer used in training. To do so, copy the `train_val.prototxt` and name it `deploy.prototxt`. Now remove the image data layer and the accuracy layer and loss layer at the end, if there is one. Similar to the `imagenet_deploy.prototxt` file, insert four lines at the beginning after the net name. It should look like: 
 
 ```prototxt
 name: "CaffeNet"
@@ -25,7 +25,7 @@ Next up is the feature extraciton. Execute the following commands in a bash comm
 ```sh
 $ ssh -X herkules
 $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/home/simon/Research/lib/gflags/lib:/usr/local/leveldb/leveldb-1.15.0:/home/simon/Research/lib/lmdb/libraries/liblmdb:/opt/intel/composer_xe_2013_sp1.0.080/mkl/lib/intel64:/usr/lib64
-$ /home/matlab/8.2/research/bin/matlab 
+$ /home/matlab/8.2/academic/bin/matlab 
 ```
 
 Matlab version other than 8.2 (that is 2013b) might not work since the MEX files might need to be compiled again. In Matlab, execute the following code to initialize Caffe:
