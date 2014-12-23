@@ -1,10 +1,9 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <cstring>
 
 #include "gtest/gtest.h"
-#include "caffe/common.hpp"
+
 #include "caffe/blob.hpp"
+#include "caffe/common.hpp"
 #include "caffe/filler.hpp"
 
 #include "caffe/test/test_caffe_main.hpp"

@@ -1,12 +1,10 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <algorithm>
 #include <cfloat>
 #include <vector>
 
 #include "caffe/layer.hpp"
-#include "caffe/vision_layers.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/vision_layers.hpp"
 
 namespace caffe {
 
@@ -153,7 +151,7 @@ __global__ void StoPoolForwardTest(const int nthreads,
 
 
 template <typename Dtype>
-Dtype PoolingLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+void PoolingLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   const Dtype* bottom_data = bottom[0]->gpu_data();
   Dtype* top_data = (*top)[0]->mutable_gpu_data();
@@ -208,7 +206,6 @@ Dtype PoolingLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     LOG(FATAL) << "Unknown pooling method.";
   }
   CUDA_POST_KERNEL_CHECK;
-  return Dtype(0.);
 }
 
 

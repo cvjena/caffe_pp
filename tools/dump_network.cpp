@@ -1,5 +1,3 @@
-// Copyright 2014 BVLC and contributors.
-//
 // This program takes in a trained network and an input blob, and then dumps
 // all the intermediate blobs produced by the net to individual binary
 // files stored in protobuffer binary formats.
@@ -18,11 +16,11 @@
 
 #include "caffe/blob.hpp"
 #include "caffe/common.hpp"
-#include "caffe/net.hpp"
 #include "caffe/filler.hpp"
+#include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
-#include "caffe/util/io.hpp"
 #include "caffe/solver.hpp"
+#include "caffe/util/io.hpp"
 
 using namespace caffe;  // NOLINT(build/namespaces)
 

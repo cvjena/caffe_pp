@@ -1,27 +1,26 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <algorithm>
-#include <cmath>
 #include <cfloat>
+#include <cmath>
 #include <vector>
 
 #include "caffe/layer.hpp"
-#include "caffe/vision_layers.hpp"
-#include "caffe/util/math_functions.hpp"
 #include "caffe/util/io.hpp"
+#include "caffe/util/math_functions.hpp"
+#include "caffe/vision_layers.hpp"
 
 namespace caffe {
 
 template <typename Dtype>
-void MultinomialLogisticLossLayer<Dtype>::FurtherSetUp(
+void MultinomialLogisticLossLayer<Dtype>::Reshape(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  LossLayer<Dtype>::Reshape(bottom, top);
   CHECK_EQ(bottom[1]->channels(), 1);
   CHECK_EQ(bottom[1]->height(), 1);
   CHECK_EQ(bottom[1]->width(), 1);
 }
 
 template <typename Dtype>
-Dtype MultinomialLogisticLossLayer<Dtype>::Forward_cpu(
+void MultinomialLogisticLossLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
   const Dtype* bottom_data = bottom[0]->cpu_data();
   const Dtype* bottom_label = bottom[1]->cpu_data();
@@ -34,10 +33,7 @@ Dtype MultinomialLogisticLossLayer<Dtype>::Forward_cpu(
         bottom_data[i * dim + label], Dtype(kLOG_THRESHOLD));
     loss -= log(prob);
   }
-  if (top->size() == 1) {
-    (*top)[0]->mutable_cpu_data()[0] = loss / num;
-  }
-  return loss / num;
+  (*top)[0]->mutable_cpu_data()[0] = loss / num;
 }
 
 template <typename Dtype>
@@ -55,11 +51,12 @@ void MultinomialLogisticLossLayer<Dtype>::Backward_cpu(
     int num = (*bottom)[0]->num();
     int dim = (*bottom)[0]->count() / (*bottom)[0]->num();
     caffe_set((*bottom)[0]->count(), Dtype(0), bottom_diff);
+    const Dtype scale = - top[0]->cpu_diff()[0] / num;
     for (int i = 0; i < num; ++i) {
       int label = static_cast<int>(bottom_label[i]);
       Dtype prob = std::max(
           bottom_data[i * dim + label], Dtype(kLOG_THRESHOLD));
-      bottom_diff[i * dim + label] = -1. / prob / num;
+      bottom_diff[i * dim + label] = scale / prob;
     }
   }
 }

@@ -1,5 +1,3 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <cstring>
 
 #include "caffe/common.hpp"
@@ -24,7 +22,7 @@ inline void SyncedMemory::to_cpu() {
   switch (head_) {
   case UNINITIALIZED:
     CaffeMallocHost(&cpu_ptr_, size_);
-    memset(cpu_ptr_, 0, size_);
+    caffe_memset(size_, 0, cpu_ptr_);
     head_ = HEAD_AT_CPU;
     own_cpu_data_ = true;
     break;
@@ -51,7 +49,7 @@ inline void SyncedMemory::to_gpu() {
   switch (head_) {
   case UNINITIALIZED:
     CUDA_CHECK(cudaMalloc(&gpu_ptr_, size_));
-    CUDA_CHECK(cudaMemset(gpu_ptr_, 0, size_));
+    caffe_gpu_memset(size_, 0, gpu_ptr_);
     head_ = HEAD_AT_GPU;
     break;
   case HEAD_AT_CPU:

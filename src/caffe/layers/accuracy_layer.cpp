@@ -1,22 +1,24 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <algorithm>
 #include <functional>
 #include <utility>
 #include <vector>
 
 #include "caffe/layer.hpp"
-#include "caffe/vision_layers.hpp"
-#include "caffe/util/math_functions.hpp"
 #include "caffe/util/io.hpp"
+#include "caffe/util/math_functions.hpp"
+#include "caffe/vision_layers.hpp"
 
 namespace caffe {
 
 template <typename Dtype>
-void AccuracyLayer<Dtype>::SetUp(
+void AccuracyLayer<Dtype>::LayerSetUp(
   const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
-  Layer<Dtype>::SetUp(bottom, top);
   top_k_ = this->layer_param_.accuracy_param().top_k();
+}
+
+template <typename Dtype>
+void AccuracyLayer<Dtype>::Reshape(
+  const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
   CHECK_EQ(bottom[0]->num(), bottom[1]->num())
       << "The data and label should have the same number.";
   CHECK_LE(top_k_, bottom[0]->count() / bottom[0]->num())
@@ -28,7 +30,7 @@ void AccuracyLayer<Dtype>::SetUp(
 }
 
 template <typename Dtype>
-Dtype AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     vector<Blob<Dtype>*>* top) {
   Dtype accuracy = 0;
   const Dtype* bottom_data = bottom[0]->cpu_data();
@@ -58,9 +60,7 @@ Dtype AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
   // LOG(INFO) << "Accuracy: " << accuracy;
   (*top)[0]->mutable_cpu_data()[0] = accuracy / num;
-
   // Accuracy layer should not be used as a loss function.
-  return Dtype(0);
 }
 
 INSTANTIATE_CLASS(AccuracyLayer);

@@ -1,20 +1,17 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <algorithm>
 #include <cfloat>
 #include <vector>
 
 #include "caffe/layer.hpp"
-#include "caffe/vision_layers.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/vision_layers.hpp"
 
 namespace caffe {
 
 template <typename Dtype>
-void SigmoidCrossEntropyLossLayer<Dtype>::FurtherSetUp(
+void SigmoidCrossEntropyLossLayer<Dtype>::LayerSetUp(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
-  CHECK_EQ(bottom[0]->count(), bottom[1]->count()) <<
-      "SIGMOID_CROSS_ENTROPY_LOSS layer inputs must have the same count.";
+  LossLayer<Dtype>::LayerSetUp(bottom, top);
   sigmoid_bottom_vec_.clear();
   sigmoid_bottom_vec_.push_back(bottom[0]);
   sigmoid_top_vec_.clear();
@@ -23,7 +20,16 @@ void SigmoidCrossEntropyLossLayer<Dtype>::FurtherSetUp(
 }
 
 template <typename Dtype>
-Dtype SigmoidCrossEntropyLossLayer<Dtype>::Forward_cpu(
+void SigmoidCrossEntropyLossLayer<Dtype>::Reshape(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  LossLayer<Dtype>::Reshape(bottom, top);
+  CHECK_EQ(bottom[0]->count(), bottom[1]->count()) <<
+      "SIGMOID_CROSS_ENTROPY_LOSS layer inputs must have the same count.";
+  sigmoid_layer_->Reshape(sigmoid_bottom_vec_, &sigmoid_top_vec_);
+}
+
+template <typename Dtype>
+void SigmoidCrossEntropyLossLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
   // The forward pass computes the sigmoid outputs.
   sigmoid_bottom_vec_[0] = bottom[0];
@@ -39,10 +45,7 @@ Dtype SigmoidCrossEntropyLossLayer<Dtype>::Forward_cpu(
     loss -= input_data[i] * (target[i] - (input_data[i] >= 0)) -
         log(1 + exp(input_data[i] - 2 * input_data[i] * (input_data[i] >= 0)));
   }
-  if (top->size() == 1) {
-    (*top)[0]->mutable_cpu_data()[0] = loss / num;
-  }
-  return loss / num;
+  (*top)[0]->mutable_cpu_data()[0] = loss / num;
 }
 
 template <typename Dtype>
@@ -62,7 +65,8 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Backward_cpu(
     Dtype* bottom_diff = (*bottom)[0]->mutable_cpu_diff();
     caffe_sub(count, sigmoid_output_data, target, bottom_diff);
     // Scale down gradient
-    caffe_scal(count, Dtype(1) / num, bottom_diff);
+    const Dtype loss_weight = top[0]->cpu_diff()[0];
+    caffe_scal(count, loss_weight / num, bottom_diff);
   }
 }
 

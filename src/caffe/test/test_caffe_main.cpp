@@ -1,5 +1,3 @@
-// Copyright 2014 BVLC and contributors.
-
 // The main caffe test code. Your test cpp code should include this hpp
 // to allow a main function to be compiled into the binary.
 
@@ -28,6 +26,9 @@ int main(int argc, char** argv) {
     device = atoi(argv[1]);
     cudaSetDevice(device);
     cout << "Setting to use device " << device << endl;
+  } else if (CUDA_TEST_DEVICE >= 0) {
+    // Use the device assigned in build configuration; but with a lower priority
+    device = CUDA_TEST_DEVICE;
   }
   cudaGetDevice(&device);
   cout << "Current device id: " << device << endl;

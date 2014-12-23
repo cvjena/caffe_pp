@@ -1,6 +1,4 @@
 #!/usr/bin/env sh
 
-TOOLS=../../build/tools
-
-GLOG_logtostderr=1 $TOOLS/caffe.bin train \
-  --solver_proto_file=lenet_consolidated_solver.prototxt
+./build/tools/caffe train \
+  --solver=examples/mnist/lenet_consolidated_solver.prototxt

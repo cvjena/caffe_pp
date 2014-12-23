@@ -1,18 +1,15 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <vector>
 
+#include "caffe/common.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/util/im2col.hpp"
 #include "caffe/vision_layers.hpp"
-#include "caffe/common.hpp"
 
 namespace caffe {
 
 template <typename Dtype>
-void Im2colLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
+void Im2colLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
-  Layer<Dtype>::SetUp(bottom, top);
   ConvolutionParameter conv_param = this->layer_param_.convolution_param();
   CHECK(!conv_param.has_kernel_size() !=
       !(conv_param.has_kernel_h() && conv_param.has_kernel_w()))
@@ -48,6 +45,11 @@ void Im2colLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
     stride_h_ = conv_param.stride_h();
     stride_w_ = conv_param.stride_w();
   }
+}
+
+template <typename Dtype>
+void Im2colLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top) {
   channels_ = bottom[0]->channels();
   height_ = bottom[0]->height();
   width_ = bottom[0]->width();
@@ -58,7 +60,7 @@ void Im2colLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-Dtype Im2colLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+void Im2colLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = (*top)[0]->mutable_cpu_data();
@@ -67,7 +69,6 @@ Dtype Im2colLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         width_, kernel_h_, kernel_w_, pad_h_, pad_w_,
         stride_h_, stride_w_, top_data + (*top)[0]->offset(n));
   }
-  return Dtype(0.);
 }
 
 template <typename Dtype>

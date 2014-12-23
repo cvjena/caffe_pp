@@ -1,4 +1,3 @@
-// Copyright 2014 BVLC and contributors.
 // TanH neuron activation function layer.
 // Adapted from ReLU layer code written by Yangqing Jia
 
@@ -11,7 +10,7 @@
 namespace caffe {
 
 template <typename Dtype>
-Dtype TanHLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+void TanHLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     vector<Blob<Dtype>*>* top) {
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = (*top)[0]->mutable_cpu_data();
@@ -21,7 +20,6 @@ Dtype TanHLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     exp2x = exp(2 * bottom_data[i]);
     top_data[i] = (exp2x - Dtype(1)) / (exp2x + Dtype(1));
   }
-  return Dtype(0);
 }
 
 template <typename Dtype>

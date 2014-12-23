@@ -1,4 +1,3 @@
-// Copyright 2014 BVLC and contributors.
 // TanH neuron activation function layer.
 // Adapted from ReLU layer code written by Yangqing Jia
 
@@ -19,7 +18,7 @@ __global__ void TanHForward(const int n, const Dtype* in, Dtype* out) {
 }
 
 template <typename Dtype>
-Dtype TanHLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+void TanHLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     vector<Blob<Dtype>*>* top) {
   const Dtype* bottom_data = bottom[0]->gpu_data();
   Dtype* top_data = (*top)[0]->mutable_gpu_data();
@@ -28,7 +27,6 @@ Dtype TanHLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   TanHForward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
       count, bottom_data, top_data);
   CUDA_POST_KERNEL_CHECK;
-  return Dtype(0);
 }
 
 template <typename Dtype>

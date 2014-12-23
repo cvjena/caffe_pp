@@ -1,12 +1,11 @@
-// Copyright 2014 BVLC and contributors.
-
 #ifndef CPU_ONLY
 
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 
 #include "glog/logging.h"
 #include "gtest/gtest.h"
+
 #include "caffe/test/test_caffe_main.hpp"
 
 namespace caffe {

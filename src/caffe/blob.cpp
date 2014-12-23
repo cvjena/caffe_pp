@@ -1,5 +1,3 @@
-// Copyright 2014 BVLC and contributors.
-
 #include "caffe/blob.hpp"
 #include "caffe/common.hpp"
 #include "caffe/syncedmem.hpp"
@@ -19,12 +17,10 @@ void Blob<Dtype>::Reshape(const int num, const int channels, const int height,
   height_ = height;
   width_ = width;
   count_ = num_ * channels_ * height_ * width_;
-  if (count_) {
-    data_.reset(new SyncedMemory(count_ * sizeof(Dtype)));
-    diff_.reset(new SyncedMemory(count_ * sizeof(Dtype)));
-  } else {
-    data_.reset(reinterpret_cast<SyncedMemory*>(NULL));
-    diff_.reset(reinterpret_cast<SyncedMemory*>(NULL));
+  if (count_ > capacity_) {
+    capacity_ = count_;
+    data_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
+    diff_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
   }
 }
 
@@ -35,7 +31,9 @@ void Blob<Dtype>::ReshapeLike(const Blob<Dtype>& other) {
 
 template <typename Dtype>
 Blob<Dtype>::Blob(const int num, const int channels, const int height,
-    const int width) {
+    const int width)
+  // capacity_ must be initialized before calling Reshape
+  : capacity_(0) {
   Reshape(num, channels, height, width);
 }
 

@@ -1,19 +1,18 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <stdio.h>  // for snprintf
-#include <google/protobuf/text_format.h>
-#include <leveldb/db.h>
-#include <leveldb/write_batch.h>
-#include <boost/algorithm/string.hpp>
 #include <string>
 #include <vector>
+
+#include "boost/algorithm/string.hpp"
+#include "google/protobuf/text_format.h"
+#include "leveldb/db.h"
+#include "leveldb/write_batch.h"
 
 #include "caffe/blob.hpp"
 #include "caffe/common.hpp"
 #include "caffe/net.hpp"
-#include "caffe/vision_layers.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
+#include "caffe/vision_layers.hpp"
 
 using namespace caffe;  // NOLINT(build/namespaces)
 
@@ -132,7 +131,7 @@ int feature_extraction_pipeline(int argc, char** argv) {
 
   int num_mini_batches = atoi(argv[++arg_pos]);
 
-  LOG(ERROR)<< "Extacting Features";
+  LOG(ERROR)<< "Extracting Features";
 
   Datum datum;
   vector<shared_ptr<leveldb::WriteBatch> > feature_batches(

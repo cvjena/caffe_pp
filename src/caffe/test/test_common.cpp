@@ -1,11 +1,11 @@
-// Copyright 2014 BVLC and contributors.
-
 #include <cstring>
 
 #include "gtest/gtest.h"
+
 #include "caffe/common.hpp"
 #include "caffe/syncedmem.hpp"
 #include "caffe/util/math_functions.hpp"
+
 #include "caffe/test/test_caffe_main.hpp"
 
 namespace caffe {
