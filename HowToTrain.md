@@ -32,20 +32,20 @@ For each of these two sets, we will create a separate LevelDB. We will use the `
     #Images will be resized accordingly, if these are greater than zero
     export RESIZE_HEIGHT=256
     export RESIZE_WIDTH=256
-    
-    echo "Creating train leveldb..."
-    GLOG_logtostderr=1 convert_imageset.bin \
-	/path/to/training_images/ \
-	train.txt \
-	/path/to/your_train_leveldb 1 leveldb \
-	$RESIZE_HEIGHT $RESIZE_WIDTH
-    
-    echo "Creating val leveldb..."
-    GLOG_logtostderr=1 convert_imageset.bin \
-	/path/to/val_images/ \
-	val.txt \
-	/path/to/your_val_leveldb 1 leveldb \
-	$RESIZE_HEIGHT $RESIZE_WIDTH
+
+    GLOG_logtostderr=1 convert_imageset \
+	-shuffle=1 -resize_width=$RESIZE_WIDTH \
+	-resize_height=$RESIZE_HEIGHT \
+	-backend=leveldb
+	/path/to/training_images/ train.txt \
+	/path/to/your_train_leveldb 
+
+    GLOG_logtostderr=1 convert_imageset \
+	-shuffle=1 -resize_width=$RESIZE_WIDTH \
+	-resize_height=$RESIZE_HEIGHT \
+	-backend=leveldb
+	/path/to/training_images/ val.txt \
+	/path/to/your_val_leveldb 
 
 ## Describing the Architecture
 
@@ -57,7 +57,7 @@ With this in mind, let us now create a training configuration of Alex Krizhevsky
 
 An important parameter of the CNN is the image mean. Subtracting the mean image of the dataset helps to significantly boost the performance. You should compute a dataset specific mean by calling 
 
-    GLOG_logtostderr=1 compute_image_mean.bin /path/to/your_train_leveldb /path/to/your/mean.binaryproto
+    GLOG_logtostderr=1 compute_image_mean.bin /path/to/your_train_leveldb /path/to/your/mean.binaryproto leveldb
 
 and adjusting the path to the mean in the `.prototxt` file.
 
@@ -68,7 +68,7 @@ There is only one last thing required for the training: the solver. The solver f
 
 Now it finally is time to get the training started. With everything set up, simply run 
 
-    GLOG_logtostderr=1 caffe.bin train --solver_proto_file=/path/to/your_solver.prototxt
+    GLOG_logtostderr=1 caffe.bin train -solver=/path/to/your_solver.prototxt
 
 This might take a looong time. The imagenet example trains about three days on a NVidia Tesla K40 GPU. Don't forget to add the GLOG_logtostderr=1 in front of the actual training command in order to see some output. The result are a bunch of snapshot files and a final model. The model contains all the parameters in a binary file and is about 240 MiB for the default imagenet model.
 
@@ -76,8 +76,8 @@ This might take a looong time. The imagenet example trains about three days on a
 
 During training, a number of snapshots are created according to the parameters you set in the solver file. These snapshots can be used to resume training at this point by calling 
 
-    GLOG_logtostderr=1 caffe.bin train --solver_proto_file=/path/to/your_solver.prototxt \
-	--resume_point_file=/path/to/your_snapshot.solverstate
+    GLOG_logtostderr=1 caffe.bin train -solver=/path/to/your_solver.prototxt \
+	-snapshot=/path/to/your_snapshot.solverstate
 
 Once it finished the training process, you can continue training with a new learning rate etc by following the instructions of the following paragraph. Just skip changing the architecture in that case. 
 
@@ -116,4 +116,4 @@ Note the changed blobs_lr (increased by a factor of 10) and the changed layer as
 
 The remaining part is similar to the regular training:
 
-    GLOG_logtostderr=1 caffe.bin train --solver_proto_file=/path/to/your_solver.prototxt --pretrained_net_file=/path/to/pretrained_model
+    GLOG_logtostderr=1 caffe.bin train -solver=/path/to/your_solver.prototxt -model=/path/to/pretrained_model
