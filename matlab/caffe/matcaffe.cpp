@@ -315,6 +315,65 @@ static mxArray* do_get_features(const mxArray* const bottom, const mxArray* cons
   return mx_out;
 }
 
+static mxArray* do_get_blobs() {
+  const vector<shared_ptr<Blob<float> > >& blobs = net_->blobs();
+  const vector<string>& blob_names = net_->blob_names();
+
+  // Step 1: count the number of layers with weights
+  int num_layers = blob_names.size();
+  
+  // Step 2: prepare output array of structures
+  mxArray* mx_layers;
+  {
+    const mwSize dims[2] = {num_layers, 1};
+    const char* fnames[3] = {"diff", "data", "blob_names"};
+    mx_layers = mxCreateStructArray(2, dims, 3, fnames);
+  }
+
+  // Step 3: copy weights into output
+  {
+    string prev_layer_name = "";
+    int mx_layer_index = 0;
+    for (unsigned int i = 0; i < blob_names.size(); ++i) {      
+      // internally data is stored as (width, height, channels, num)
+      // where width is the fastest dimension
+      mwSize dims[4] = {blobs[i]->width(), blobs[i]->height(),
+	  blobs[i]->channels(), blobs[i]->num()};
+      mxArray* mx_data =
+	mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+      mxArray* mx_diff =
+	mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+      mxSetField(mx_layers, mx_layer_index, "data", mx_data);
+      mxSetField(mx_layers, mx_layer_index, "diff", mx_diff);
+      mxSetField(mx_layers, mx_layer_index, "blob_names",
+	  mxCreateString(blob_names[i].c_str()));
+      mx_layer_index++;
+      
+      
+      float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_data));
+      float* diff_ptr = reinterpret_cast<float*>(mxGetPr(mx_diff));
+
+      switch (Caffe::mode()) {
+      case Caffe::CPU:
+	caffe_copy(blobs[i]->count(), blobs[i]->cpu_data(),
+	    data_ptr);
+	caffe_copy(blobs[i]->count(), blobs[i]->cpu_diff(),
+	    diff_ptr);
+	break;
+      case Caffe::GPU:
+	caffe_copy(blobs[i]->count(), blobs[i]->gpu_data(),
+	    data_ptr);
+	caffe_copy(blobs[i]->count(), blobs[i]->gpu_diff(),
+	    diff_ptr);
+	break;
+      default:
+	LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+      }
+    }
+  }
+
+  return mx_layers;
+}
 
 static mxArray* do_get_weights() {
   const vector<shared_ptr<Layer<float> > >& layers = net_->layers();
@@ -394,6 +453,12 @@ static mxArray* do_get_weights() {
 
   return mx_layers;
 }
+
+
+static void get_blobs(MEX_ARGS) {
+  plhs[0] = do_get_blobs();
+}
+
 
 static void get_weights(MEX_ARGS) {
   plhs[0] = do_get_weights();
@@ -552,6 +617,7 @@ static handler_registry handlers[] = {
   { "set_phase_test",     set_phase_test  },
   { "set_device",         set_device      },
   { "get_weights",        get_weights     },
+  { "get_blobs",          get_blobs       },
   { "get_init_key",       get_init_key    },
   { "reset",              reset           },
   { "read_mean",          read_mean       },

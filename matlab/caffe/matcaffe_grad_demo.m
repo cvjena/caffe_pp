@@ -50,7 +50,7 @@ if nargin < 1
   im = imread('peppers.png');
 end
 tic;
-gradients = caffe_gradients(im,'pool5',(195:205)');
+gradients = caffe_gradients(im,'pool5',(1:256)');
 toc;
 % tic 
 % scores=caffe('forward',{repmat(caffe_prepare_image(im),1,1,1,10)});
@@ -58,12 +58,12 @@ toc;
 % toc
 % g2=g2{1};
 % gradients=g2;
-gradients=gradients(:,:,:,1:9);
+gradients=gradients(:,:,:,1:16);
 for i=1:size(gradients,4)
     g=gradients(:,:,:,i);
     g=abs(g);
     g=sum(g,3);
-    g=g/max(g(:));
+    g=g/max(gradients(:));
 %     g=g*4;
     subplot(ceil(sqrt(size(gradients,4))),ceil(sqrt(size(gradients,4))),i);
     imshow(g);

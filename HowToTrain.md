@@ -36,15 +36,15 @@ For each of these two sets, we will create a separate LevelDB. We will use the `
     GLOG_logtostderr=1 convert_imageset \
 	-shuffle=1 -resize_width=$RESIZE_WIDTH \
 	-resize_height=$RESIZE_HEIGHT \
-	-backend=leveldb
-	/path/to/training_images/ train.txt \
+	-backend=lmdb
+	/path/to/training_images/ /path/to/train.txt \
 	/path/to/your_train_leveldb 
 
     GLOG_logtostderr=1 convert_imageset \
 	-shuffle=1 -resize_width=$RESIZE_WIDTH \
 	-resize_height=$RESIZE_HEIGHT \
-	-backend=leveldb
-	/path/to/training_images/ val.txt \
+	-backend=lmdb
+	/path/to/training_images/ /path/to/val.txt \
 	/path/to/your_val_leveldb 
 
 ## Describing the Architecture

@@ -48,7 +48,7 @@ function [scores, maxlabel] = matcaffe_demo(im, use_gpu)
 
 % init caffe network (spews logging info)
 % if exist('use_gpu', 'var')
-  matcaffe_init(1);
+   matcaffe_init(1);
 % else
 %   matcaffe_init();
 % end
