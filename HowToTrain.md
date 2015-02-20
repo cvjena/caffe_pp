@@ -116,4 +116,4 @@ Note the changed blobs_lr (increased by a factor of 10) and the changed layer as
 
 The remaining part is similar to the regular training:
 
-    GLOG_logtostderr=1 caffe.bin train -solver=/path/to/your_solver.prototxt -model=/path/to/pretrained_model
+    GLOG_logtostderr=1 caffe.bin train -solver=/path/to/your_solver.prototxt -weights=/path/to/pretrained_model
