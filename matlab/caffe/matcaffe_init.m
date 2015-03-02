@@ -27,7 +27,8 @@ if caffe('is_initialized') == 0 || reset == 1
     % NOTE: you'll have to get network definition
     error('You need the network prototxt definition');
   end
-  caffe('init', model_def_file, model_file)
+  % load network in TEST phase
+  caffe('init', model_def_file, model_file, 'test')
 end
 fprintf('Done with init\n');
 
