@@ -1,4 +1,4 @@
-function  matcaffe_init(use_gpu, model_def_file, model_file, reset)
+function  matcaffe_init(use_gpu, model_def_file, model_file, reset, device_id)
 % matcaffe_init(model_def_file, model_file, use_gpu)
 % Initilize matcaffe wrapper
 
@@ -17,6 +17,9 @@ end
 if nargin < 4
     reset = 0;
 end
+if nargin >= 5 && device_id>=0
+    caffe('set_device',device_id);
+end
 
 if caffe('is_initialized') == 0 || reset == 1
   if exist(model_file, 'file') == 0
@@ -30,7 +33,6 @@ if caffe('is_initialized') == 0 || reset == 1
   % load network in TEST phase
   caffe('init', model_def_file, model_file, 'test')
 end
-fprintf('Done with init\n');
 
 % set to use GPU or CPU
 if use_gpu
@@ -41,7 +43,3 @@ else
   caffe('set_mode_cpu');
 end
 % fprintf('Done with set_mode\n');
-
-% put into test mode
-caffe('set_phase_test');
-% fprintf('Done with set_phase_test\n');

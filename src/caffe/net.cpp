@@ -531,7 +531,7 @@ string Net<Dtype>::Forward(const string& input_blob_protos, Dtype* loss) {
 
 
 template <typename Dtype>
-const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_ids, vector<Blob<Dtype>* >& gradients) {
+int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_ids, vector<Blob<Dtype>* >& gradients) {
 //   LOG(INFO) << "In CalcGradientsPrefilled(...)";
   // Calculate the id of the target layer
   vector<string>::const_iterator layer_iter=std::find(layer_names().begin(), layer_names().end(), layername);
@@ -545,7 +545,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
   }
   // Forward Run
   for (int i = 0; i <= layer_id; ++i) {
-    layers_[i]->Forward(bottom_vecs_[i], &top_vecs_[i]);
+    layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
     if (debug_info_) { ForwardDebugInfo(i); }
   }
   
@@ -653,39 +653,37 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
 		  top_vecs_[layer_id][i]->mutable_gpu_diff() );
       }
     } // end for every blob
-//     LOG(INFO) << "Backpropagation...";
+    // LOG(INFO) << "Backpropagation...";
     // Backward run
     // for every layer 
     for (int i = layer_id; i >= 0; --i) {
-      if (layer_need_backward_[i]) {
-	vector<bool> do_propagate(bottom_need_backward_[i].size());
-	for (int j=0; j<bottom_need_backward_[i].size();j++)
-	  do_propagate[j]=true;
-	
-	layers_[i]->Backward(top_vecs_[i], do_propagate, &bottom_vecs_[i]);
-  //       LOG(INFO)<< bottom_need_backward_[i][0];
-  //       LOG(INFO) << *(top_vecs_[i][0]->mutable_cpu_diff()+12);
-  //       int duplicate_count = bottom_vecs_[i][0]->num();
-  //       int channel_count = bottom_vecs_[i][0]->channels();
-  //       int blob_width = bottom_vecs_[i][0]->width();
-  //       int blob_height = bottom_vecs_[i][0]->height();
-  //       Dtype* data_ptr = bottom_vecs_[i][0]->mutable_cpu_diff();
-  //       for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
-  // 	for (int c = 0 ; c < channel_count; c++) {
-  // 	  for (int h = 0 ; h < blob_height; h++)  {
-  // 	    std::ostringstream ss; 
-  // 	    ss << j << " " << c << " " << h << ": ";
-  // 	    for (int w = 0 ; w < blob_width; w++)  {
-  // 	      ss << "," << (*data_ptr);
-  // 	      data_ptr++;
-  // 	    }
-  // 	    if (c < 3)
-  // 	      LOG(INFO) << ss.str();
-  // 	  }
-  // 	}
-  //       }
-	if (debug_info_) { BackwardDebugInfo(i); }
-      }
+		vector<bool> do_propagate(bottom_need_backward_[i].size());
+		for (int j=0; j<bottom_need_backward_[i].size();j++)
+		  do_propagate[j]=true;
+
+		layers_[i]->Backward(top_vecs_[i], do_propagate, bottom_vecs_[i]);
+	  //       LOG(INFO)<< bottom_need_backward_[i][0];
+	  //       LOG(INFO) << *(top_vecs_[i][0]->mutable_cpu_diff()+12);
+	  //       int duplicate_count = bottom_vecs_[i][0]->num();
+	  //       int channel_count = bottom_vecs_[i][0]->channels();
+	  //       int blob_width = bottom_vecs_[i][0]->width();
+	  //       int blob_height = bottom_vecs_[i][0]->height();
+	  //       Dtype* data_ptr = bottom_vecs_[i][0]->mutable_cpu_diff();
+	  //       for (int j = 0; j < duplicate_count && j < channel_ids.size(); j++) {
+	  // 	for (int c = 0 ; c < channel_count; c++) {
+	  // 	  for (int h = 0 ; h < blob_height; h++)  {
+	  // 	    std::ostringstream ss;
+	  // 	    ss << j << " " << c << " " << h << ": ";
+	  // 	    for (int w = 0 ; w < blob_width; w++)  {
+	  // 	      ss << "," << (*data_ptr);
+	  // 	      data_ptr++;
+	  // 	    }
+	  // 	    if (c < 3)
+	  // 	      LOG(INFO) << ss.str();
+	  // 	  }
+	  // 	}
+	  //       }
+		if (debug_info_) { BackwardDebugInfo(i); }
     } // end for every layer
     // Copy data to output 
     gradients.push_back(new Blob<Dtype>());
@@ -701,7 +699,7 @@ const int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& chan
 
 
 template <typename Dtype>
-const int Net<Dtype>::GetFeaturesPrefilled(string layername, vector<Blob<Dtype>* >& features) {
+int Net<Dtype>::GetFeaturesPrefilled(string layername, vector<Blob<Dtype>* >& features) {
   // calculate the id of the target layer
   vector<string>::const_iterator layer_iter=std::find(layer_names().begin(), layer_names().end(), layername);
   int layer_id;
@@ -714,7 +712,7 @@ const int Net<Dtype>::GetFeaturesPrefilled(string layername, vector<Blob<Dtype>*
   }
   // Forward Run
   for (int i = 0; i <= layer_id; ++i) {
-    layers_[i]->Forward(bottom_vecs_[i], &top_vecs_[i]);
+    layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
     if (debug_info_) { ForwardDebugInfo(i); }
   }
   features.assign(top_vecs_[layer_id].begin(),top_vecs_[layer_id].end());

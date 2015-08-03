@@ -12,26 +12,28 @@ function [ im ] = caffe_prepare_image( im, mean, width, crop )
     % make sure it's single type
     im = single(im);
     % resize to mean image
-    im = imresize(im,[size(mean,1) size(mean,2)],'bilinear');
+    im = imresize(im,[width width],'bilinear');
     % catch gray scale images
     if (size(im,3)==1)
         im=repmat(im,1,1,3);
     else
         im = im(:,:,[3 2 1]);
     end
-    % subtract mean
-    im = im - mean;
+    % subtract with center crop of mean
+    offset_row=int32(size(mean,1)-width)/2+1;
+    offset_col=int32(size(mean,2)-width)/2+1;
+    im = im - mean(offset_row:offset_row+width-1,offset_col:offset_col+width-1,:);
     %  transpose 
     im = permute(im, [2 1 3]);
     
-    if (crop)
-        % crop to output
-        offset_row=int32((size(im,1)-width)/2);
-        offset_col=int32((size(im,2)-width)/2);
-        im=im(offset_row:offset_row+width-1,offset_col:offset_col+width-1,:);
-    else
-        % resize to desire output
-        im = imresize(im,[width width],'bilinear');
-    end
+%     if (crop)
+%         % crop to output
+%         offset_row=int32((size(im,1)-width)/2);
+%         offset_col=int32((size(im,2)-width)/2);
+%         im=im(offset_row:offset_row+width-1,offset_col:offset_col+width-1,:);
+%     else
+%         % resize to desire output
+%         im = imresize(im,[width width],'bilinear');
+%     end
 end
 

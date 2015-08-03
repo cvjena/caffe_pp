@@ -14,6 +14,9 @@
 
 #define MEX_ARGS int nlhs, mxArray **plhs, int nrhs, const mxArray **prhs
 
+#define SSTR( x ) dynamic_cast< std::ostringstream & >( \
+        ( std::ostringstream() << std::dec << x ) ).str()
+
 // Log and throw a Mex error
 inline void mex_error(const std::string &msg) {
   LOG(ERROR) << msg;
@@ -181,20 +184,20 @@ static mxArray* do_get_gradients(const mxArray* const bottom, const mxArray* con
   if (selected_channels_i.size()<1)
     mexErrMsgTxt("Channel list must not be empty.");
   // Copy the input to the bottom blob
-  vector<Blob<float>*>& input_blobs = net_->input_blobs();
+  const vector<Blob<float>*>& input_blobs = net_->input_blobs();
   if (static_cast<unsigned int>(mxGetDimensions(bottom)[0])!=input_blobs.size())
     mexErrMsgTxt("The input has to be a cell array usually containing a single height x width x channels x batch size image!");
   for (unsigned int i = 0; i < input_blobs.size(); ++i) {
     const mxArray* const elem = mxGetCell(bottom, i);
     // Check if the input dimensions are correct
     if (mxGetDimensions(elem)[0]!=input_blobs[i]->width())
-      mexErrMsgTxt("The height of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The height of the input images is wrong! It should be " << input_blobs[i]->width()).c_str());
     if (mxGetDimensions(elem)[1]!=input_blobs[i]->height())
-      mexErrMsgTxt("The width of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The width of the input images is wrong!" << input_blobs[i]->height()).c_str());
     if (mxGetDimensions(elem)[2]!=input_blobs[i]->channels())
-      mexErrMsgTxt("The channel size of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The channel size of the input images is wrong!" << input_blobs[i]->channels()).c_str());
     if (mxGetDimensions(elem)[3]!=input_blobs[i]->num())
-      mexErrMsgTxt("The batch size of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The batch size of the input images is wrong! Expecting batch size of " << input_blobs[i]->num() << " but received " << mxGetDimensions(elem)[3]).c_str());
     const float* const data_ptr =
         reinterpret_cast<const float* const>(mxGetPr(elem));
     switch (Caffe::mode()) {
@@ -271,19 +274,19 @@ static mxArray* do_get_features(const mxArray* const bottom, const mxArray* cons
   char* layer_name = mxArrayToString(layername);
   
   // Copy the input to the bottom blob
-  vector<Blob<float>*>& input_blobs = net_->input_blobs();
+  const vector<Blob<float>*>& input_blobs = net_->input_blobs();
   if (static_cast<unsigned int>(mxGetDimensions(bottom)[0])!=input_blobs.size())
     mexErrMsgTxt("The input has to be a cell array usually containing a single height x width x channels x batch size image!");
   for (unsigned int i = 0; i < input_blobs.size(); ++i) {
     const mxArray* const elem = mxGetCell(bottom, i);
     if (mxGetDimensions(elem)[0]!=input_blobs[i]->width())
-      mexErrMsgTxt("The height of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The height of the input images is wrong! It should be " << input_blobs[i]->width()).c_str());
     if (mxGetDimensions(elem)[1]!=input_blobs[i]->height())
-      mexErrMsgTxt("The width of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The width of the input images is wrong!" << input_blobs[i]->height()).c_str());
     if (mxGetDimensions(elem)[2]!=input_blobs[i]->channels())
-      mexErrMsgTxt("The channel size of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The channel size of the input images is wrong!" << input_blobs[i]->channels()).c_str());
     if (mxGetDimensions(elem)[3]!=input_blobs[i]->num())
-      mexErrMsgTxt("The batch size of the input images is wrong!");
+      mexErrMsgTxt(SSTR("The batch size of the input images is wrong!" << input_blobs[i]->num()).c_str());
     const float* const data_ptr =
         reinterpret_cast<const float* const>(mxGetPr(elem));
     switch (Caffe::mode()) {
@@ -567,7 +570,7 @@ static void backward(MEX_ARGS) {
 }
 
 static void get_gradients(MEX_ARGS) {
-//   LOG(INFO) << "In get_gradients() with " << nrhs << " arguments";
+  // LOG(INFO) << "In get_gradients() with " << nrhs << " arguments";
   if (nrhs != 3) {
     LOG(ERROR) << "Only given " << nrhs << " arguments";
     mexErrMsgTxt("Wrong number of arguments");
