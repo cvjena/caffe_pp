@@ -94,6 +94,20 @@ class SGDSolver : public Solver<Dtype> {
 };
 
 template <typename Dtype>
+class QuickpropSolver : public SGDSolver<Dtype> {
+ public:
+  explicit QuickpropSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param) {}
+  explicit QuickpropSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file) {}
+
+ protected:
+  virtual void ComputeUpdateValue();
+
+  DISABLE_COPY_AND_ASSIGN(QuickpropSolver);
+};
+
+template <typename Dtype>
 class NesterovSolver : public SGDSolver<Dtype> {
  public:
   explicit NesterovSolver(const SolverParameter& param)
