@@ -94,6 +94,20 @@ class SGDSolver : public Solver<Dtype> {
 };
 
 template <typename Dtype>
+class QuickpropSolver : public SGDSolver<Dtype> {
+ public:
+  explicit QuickpropSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param) {}
+  explicit QuickpropSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file) {}
+
+ protected:
+  virtual void ComputeUpdateValue();
+
+  DISABLE_COPY_AND_ASSIGN(QuickpropSolver);
+};
+
+template <typename Dtype>
 class NesterovSolver : public SGDSolver<Dtype> {
  public:
   explicit NesterovSolver(const SolverParameter& param)
@@ -136,6 +150,8 @@ Solver<Dtype>* GetSolver(const SolverParameter& param) {
       return new NesterovSolver<Dtype>(param);
   case SolverParameter_SolverType_ADAGRAD:
       return new AdaGradSolver<Dtype>(param);
+  case SolverParameter_SolverType_QUICKPROP:
+      return new QuickpropSolver<Dtype>(param);
   default:
       LOG(FATAL) << "Unknown SolverType: " << type;
   }

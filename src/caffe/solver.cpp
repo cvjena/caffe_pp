@@ -574,6 +574,167 @@ void SGDSolver<Dtype>::RestoreSolverState(const SolverState& state) {
 }
 
 template <typename Dtype>
+void QuickpropSolver<Dtype>::ComputeUpdateValue() {
+  const vector<shared_ptr<Blob<Dtype> > >& net_params = this->net_->params();
+  const vector<float>& net_params_lr = this->net_->params_lr();
+  const vector<float>& net_params_weight_decay =
+      this->net_->params_weight_decay();
+  // get the learning rate
+  Dtype rate = this->GetLearningRate();
+  if (this->param_.display() && this->iter_ % this->param_.display() == 0) {
+    LOG(INFO) << "Quickprop Iteration " << this->iter_ << ", lr = " << rate;
+  }
+  SGDSolver<Dtype>::ClipGradients();
+  Dtype momentum = this->param_.momentum();
+  Dtype weight_decay = this->param_.weight_decay();
+  string regularization_type = this->param_.regularization_type();
+  Dtype eps = this->param_.eps();
+  Dtype mu = this->param_.mu();
+  switch (Caffe::mode()) {
+  case Caffe::CPU:
+    for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      // Compute the value to history, and then copy them to the blob's diff.
+      Dtype local_rate = rate * net_params_lr[param_id];
+      Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
+
+      if (local_decay) {
+        if (regularization_type == "L2") {
+          // add weight decay
+          caffe_axpy(net_params[param_id]->count(),
+              local_decay,
+              net_params[param_id]->cpu_data(),
+              net_params[param_id]->mutable_cpu_diff());
+        } else if (regularization_type == "L1") {
+          caffe_cpu_sign(net_params[param_id]->count(),
+              net_params[param_id]->cpu_data(),
+              this->temp_[param_id]->mutable_cpu_data());
+          caffe_axpy(net_params[param_id]->count(),
+              local_decay,
+              this->temp_[param_id]->cpu_data(),
+              net_params[param_id]->mutable_cpu_diff());
+        } else {
+          LOG(FATAL) << "Unknown regularization type: " << regularization_type;
+        }
+      }
+      // Calculate normalized current gradient
+      caffe_cpu_axpby(net_params[param_id]->count(), momentum,
+                this->history_[param_id]->cpu_data(), local_rate,
+                net_params[param_id]->mutable_cpu_diff());
+      
+      caffe_copy(net_params[param_id]->count(),
+          net_params[param_id]->cpu_diff(),
+          this->history_[param_id]->mutable_cpu_data());
+    }
+    break;
+  case Caffe::GPU:
+#ifndef CPU_ONLY
+    for (int param_id = 0; param_id < net_params.size(); ++param_id) {
+      // Compute the value to history, and then copy them to the blob's diff.
+      Dtype local_rate = rate * net_params_lr[param_id];
+      Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
+      
+      // First do the normal gradient descent stuff
+      if (local_decay) {
+        if (regularization_type == "L2") {
+          // add weight decay
+          caffe_gpu_axpy(net_params[param_id]->count(),
+              local_decay,
+              net_params[param_id]->gpu_data(),
+              net_params[param_id]->mutable_gpu_diff());
+        } else if (regularization_type == "L1") {
+          caffe_gpu_sign(net_params[param_id]->count(),
+              net_params[param_id]->gpu_data(),
+              this->temp_[param_id]->mutable_gpu_data());
+          caffe_gpu_axpy(net_params[param_id]->count(),
+              local_decay,
+              this->temp_[param_id]->gpu_data(),
+              net_params[param_id]->mutable_gpu_diff());
+        } else {
+          LOG(FATAL) << "Unknown regularization type: " << regularization_type;
+        }
+      }
+      // Calculate normalized current gradient
+      //caffe_gpu_axpby(net_params[param_id]->count(), momentum,
+      //          this->history_[param_id]->gpu_data(), local_rate,
+      //          net_params[param_id]->mutable_gpu_diff());
+      
+      // Now do QuickProp specific
+      Dtype* p_step = this->temp_[param_id]->mutable_cpu_data();
+      const Dtype* p_gradient = net_params[param_id]->cpu_diff();
+      const Dtype* p_last_gradient = this->history_[param_id]->cpu_data();
+      const Dtype* p_last_step = this->update_[param_id]->cpu_data();
+      // TODO: add parameter mu and eps
+      Dtype s = mu / (Dtype(1)+mu);
+      Dtype lr = local_rate;
+      //LOG(INFO) << "Quickprop with mu " << mu << " and eps " << eps;
+      for (int i=0;i< net_params[param_id]->count();i++)
+      {
+	  Dtype step = Dtype(0);
+	  Dtype delta = (*p_gradient);
+	  Dtype last_gradient = (*p_last_gradient);
+	  Dtype last_step = (*p_last_step);
+	  
+            if(last_step > Dtype(0.001)) {
+              if(delta > Dtype(0.0)) {
+                step += lr * eps * delta;
+              }
+              if(delta > (s * last_gradient)) {
+                step += mu * last_step;
+              } else {
+                step += last_step * delta / (last_gradient - delta);
+              }
+              
+            } else if(last_step < Dtype(-0.001)) {
+              if(delta < Dtype(0.0)) {
+                step += lr * eps * delta;
+              }
+              
+              if(delta < (s * last_gradient)) {
+                step += mu * last_step;
+              } else {
+		
+                step += last_step * delta / (last_gradient - delta);
+              }
+            } else {
+              step += lr * eps * delta;
+            }
+            
+	    // No quickprop 
+	    //step = lr * delta; 
+	    
+            (*p_step) = step;
+	    
+	  //if (i==0 && param_id == 1)
+	    //LOG(INFO) << "Step " << step << " delta " << delta << " last_gradient " << last_gradient << " last_step " << last_step;
+	    
+	    p_step++;
+	    p_gradient++;
+	    p_last_gradient++;
+	    p_last_step++;
+      }
+      // save old gradient
+      caffe_copy(net_params[param_id]->count(),
+          net_params[param_id]->gpu_diff(),
+          this->history_[param_id]->mutable_gpu_data());
+      // save old step
+      caffe_copy(net_params[param_id]->count(),
+          this->temp_[param_id]->gpu_data(),
+          this->update_[param_id]->mutable_gpu_data());
+      // copy steps to net_params
+      caffe_copy(net_params[param_id]->count(),
+          this->temp_[param_id]->gpu_data(),
+          net_params[param_id]->mutable_gpu_diff());
+    }
+#else
+    NO_GPU;
+#endif
+    break;
+  default:
+    LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+  }
+}
+
+template <typename Dtype>
 void NesterovSolver<Dtype>::ComputeUpdateValue() {
   const vector<shared_ptr<Blob<Dtype> > >& net_params = this->net_->params();
   const vector<float>& net_params_lr = this->net_->params_lr();
@@ -827,6 +988,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue() {
 
 INSTANTIATE_CLASS(Solver);
 INSTANTIATE_CLASS(SGDSolver);
+INSTANTIATE_CLASS(QuickpropSolver);
 INSTANTIATE_CLASS(NesterovSolver);
 INSTANTIATE_CLASS(AdaGradSolver);
 
