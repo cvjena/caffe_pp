@@ -663,7 +663,6 @@ void QuickpropSolver<Dtype>::ComputeUpdateValue() {
       const Dtype* p_gradient = net_params[param_id]->cpu_diff();
       const Dtype* p_last_gradient = this->history_[param_id]->cpu_data();
       const Dtype* p_last_step = this->update_[param_id]->cpu_data();
-      // TODO: add parameter mu and eps
       Dtype s = mu / (Dtype(1)+mu);
       Dtype lr = local_rate;
       //LOG(INFO) << "Quickprop with mu " << mu << " and eps " << eps;
@@ -702,7 +701,7 @@ void QuickpropSolver<Dtype>::ComputeUpdateValue() {
 	    // No quickprop 
 	    //step = lr * delta; 
 	    
-            (*p_step) = step;
+            (*p_step) = 0;// step;
 	    
 	  //if (i==0 && param_id == 1)
 	    //LOG(INFO) << "Step " << step << " delta " << delta << " last_gradient " << last_gradient << " last_step " << last_step;
