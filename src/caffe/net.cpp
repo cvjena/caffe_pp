@@ -557,9 +557,9 @@ int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_id
   
   // Allocate array for temporary diff data
   Dtype* top_diff = NULL;
-  if (Caffe::mode() == Caffe::GPU) {
-    top_diff = new Dtype[top_vecs_[layer_id][0]->count()];
-  }
+ //  if (Caffe::mode() == Caffe::GPU) {
+  //   top_diff = new Dtype[top_vecs_[layer_id][0]->count()];
+  // }
   
 //   LOG(INFO) << "Layer " << layername << " has shape w=" << top_vecs_[layer_id][0]->width() << " and h=" << top_vecs_[layer_id][0]->height();
   // for every batch of channels
@@ -580,9 +580,10 @@ int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_id
 	top_diff = top_vecs_[layer_id][i]->mutable_cpu_diff();
 	break;
       case Caffe::GPU:
-	caffe_copy(top_vecs_[layer_id][i]->count(), 
-	    top_vecs_[layer_id][i]->mutable_gpu_diff(),
-	    top_diff);
+	top_diff = top_vecs_[layer_id][i]->mutable_gpu_diff();
+	// caffe_copy(top_vecs_[layer_id][i]->count(), 
+	//     top_vecs_[layer_id][i]->mutable_gpu_diff(),
+	   //  top_diff);
 	break;
       default:
 	LOG(FATAL) << "Unknown Caffe mode.";
@@ -647,11 +648,11 @@ int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_id
 //       }
 //       LOG(INFO) << "Equality check passed. ";
       // Copy data back, if necessary
-      if (Caffe::mode() == Caffe::GPU) {
-	caffe_copy(top_vecs_[layer_id][i]->count(), 
-		  top_diff,
-		  top_vecs_[layer_id][i]->mutable_gpu_diff() );
-      }
+      // if (Caffe::mode() == Caffe::GPU) {
+// 	caffe_copy(top_vecs_[layer_id][i]->count(), 
+// 		  top_diff,
+// 		  top_vecs_[layer_id][i]->mutable_gpu_diff() );
+   //    }
     } // end for every blob
     // LOG(INFO) << "Backpropagation...";
     // Backward run
@@ -691,9 +692,9 @@ int Net<Dtype>::CalcGradientsPrefilled(string layername, vector<int>& channel_id
 //     LOG(INFO) << "Copied batch blob to temporary storage ("<<batch_id<<"), it now has "<<gradients.size() << " blobs total";
   } // end for every batch
   // delete the temporary storage
-  if (Caffe::mode() == Caffe::GPU) {
-    delete[] top_diff;
-  }
+  // if (Caffe::mode() == Caffe::GPU) {
+   //  delete[] top_diff;
+  // }
   return 0;
 }  
 
