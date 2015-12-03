@@ -49,10 +49,12 @@ function [ features ] = caffe_features( images, layer, meanfile, batch_size, wid
     % Calculate the starting indices of every batch
     slices=1:batch_size:size(fl,1);
     slices(end+1)=size(fl,1)+1;
+    print_count = 0;
     % for every slice
     for i=1:numel(slices)-1
         if (i>1 && mod(i,10)==0)
-            fprintf('Running batch number %i of %i\n',i, numel(slices)-1);
+	    fprintf(repmat('\b',1,print_count));
+            print_count = fprintf('Running batch number %i of %i\n',i, numel(slices)-1);
         end
         % load the image of the next slice
         for j=slices(i):slices(i+1)-1;
@@ -70,6 +72,7 @@ function [ features ] = caffe_features( images, layer, meanfile, batch_size, wid
         end
         features(slices(i):(slices(i+1)-1),:)=tmp_feat(1:(slices(i+1)-slices(i)),:);
     end
+    fprintf(repmat('\b',1,print_count));
     features=double(features);
 end
 
